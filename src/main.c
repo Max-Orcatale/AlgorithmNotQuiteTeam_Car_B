@@ -4,9 +4,30 @@
 #include "tb_gpio.h"
 #include "tb_rcc.h"
 #include "tb_timer.h"
+#define ARM_TASK_STEP_NUM 114514
+
+/* 机械臂姿态结构体 */
+typedef struct {
+    u16 pulse[4];   // 4个舵机各自的目标脉宽
+    u16 time_ms;    // 这一步用多久完成
+} ArmPose;    
+ArmPose g_arm_task[ARM_TASK_STEP_NUM] = {
+    // 这里应该有 ARM_TASK_STEP_NUM 个 ArmPose 结构体，代表机械臂的动作序列
+};      
+
+/*状态机控制变量*/
+static u8 g_current_step = 0; // 当前机械臂动作步骤
+static u8 g_step_started = 0; // 当前步骤是否已开始执行
+
 
 static void Servo_SetPulseUs(uint16_t us);
 static void Servo_SetAngleRelative(int16_t angle);
+
+/*机械臂层控制函数*/
+static void do_pose(const ArmPose *pose);
+static u8 check_dj_state(void);
+static void handle_action(void);
+
 
 int main(void)
 {
@@ -16,6 +37,7 @@ int main(void)
     tb_gpio_init();     //版极 GPIO 基础初始化
     dj_io_init();       //舵机相关GPIO初始化
     pwmServo_init();    //PWM 初始化
+    TIM2_Int_Init(20000 - 1, 72 - 1); // TIM2 每 20ms 进一次中断
 
     while (1)
     {
@@ -37,6 +59,44 @@ static void Servo_SetAngleRelative(int16_t angle)
 
     uint16_t pulse = 1500 + (angle * 500) / 90;
     pwmServo_set(0, pulse);
+}
+
+/* 检查舵机是否全部到位，1表示未到位，0表示全部到位 */
+static u8 check_dj_state(void)
+{
+    u8 i;
+
+    for (i = 0; i < DJ_NUM; i++)
+    {
+        if (duoji_doing[i].inc != 0)
+        {
+            return 1;   // 还有舵机在动
+        }
+    }
+
+    return 0;           // 全部到位
+}
+
+static void do_pose(const ArmPose *pose)
+{
+    u8 i;
+    for(i=0; i<DJ_NUM; i++){
+        pwmServo_angle_set(i, pose->pulse[i], pose->time_ms);
+    }
+}
+
+static void handle_action(void)
+{
+    if(g_current_step >= ARM_TASK_STEP_NUM){
+        return; // 所有步骤完成
+    }
+    if(!g_step_started){
+        do_pose(&g_arm_task[g_current_step]);
+        g_step_started = 1;
+    }else if(check_dj_state() == 0){
+        g_current_step++;
+        g_step_started = 0;
+    }
 }
 
 // 错误处理函数
