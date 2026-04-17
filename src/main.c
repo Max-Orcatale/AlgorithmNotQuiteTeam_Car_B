@@ -4,7 +4,7 @@
 #include "tb_gpio.h"
 #include "tb_rcc.h"
 #include "tb_timer.h"
-#define ARM_TASK_STEP_NUM 114514
+#define ARM_TASK_STEP_NUM 5   // 机械臂动作步骤数，根据实际任务调整
 
 /* 机械臂姿态结构体 */
 typedef struct {
@@ -19,10 +19,6 @@ ArmPose g_arm_task[ARM_TASK_STEP_NUM] = {
 static u8 g_current_step = 0; // 当前机械臂动作步骤
 static u8 g_step_started = 0; // 当前步骤是否已开始执行
 
-
-static void Servo_SetPulseUs(uint16_t us);
-static void Servo_SetAngleRelative(int16_t angle);
-
 /*机械臂层控制函数*/
 static void do_pose(const ArmPose *pose);
 static u8 check_dj_state(void);
@@ -36,30 +32,18 @@ int main(void)
     tb_global_init();   //全局状态初始化
     tb_gpio_init();     //版极 GPIO 基础初始化
     dj_io_init();       //舵机相关GPIO初始化
-    pwmServo_init();    //PWM 初始化
     TIM2_Int_Init(20000 - 1, 72 - 1); // TIM2 每 20ms 进一次中断
 
     while (1)
     {
-        // 左30°
-        Servo_SetAngleRelative(-30);
-        tb_delay_ms(1000);
-
-        // 右30°
-        Servo_SetAngleRelative(30);
-        tb_delay_ms(1000);
+        pwmServo_angle_set(0, 1500, 1000); // 测试：将舵机0设置到1500us，过渡时间1000ms
+        HAL_Delay(2000); // 等待2秒
+        pwmServo_angle_set(0, 2000, 1000); // 测试：将舵机0设置到2000us，过渡时间1000ms
+        HAL_Delay(2000); // 等待2秒
     }
 }
 
-// 舵机控制函数，设置脉宽（单位：微秒）
-static void Servo_SetAngleRelative(int16_t angle)
-{
-    if (angle < -90) angle = -90;
-    if (angle > 90)  angle = 90;
 
-    uint16_t pulse = 1500 + (angle * 500) / 90;
-    pwmServo_set(0, pulse);
-}
 
 /* 检查舵机是否全部到位，1表示未到位，0表示全部到位 */
 static u8 check_dj_state(void)
