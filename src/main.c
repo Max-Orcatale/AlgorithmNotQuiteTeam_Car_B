@@ -40,7 +40,7 @@ int main(void)
     //static u8 cur_key_state = 0;
     //pwmServo_angle_set(servo_id, servo_pulse, 1000);
     char rx_buf[64];
-    ArmPose temp_pose = {{1500, 1500, 1500, 1500}, 500};
+    ArmPose temp_pose = {{1500, 1000, 1500, 1500}, 500};
 
     while (1)
     {
@@ -61,7 +61,6 @@ int main(void)
             }
         }
 
-        HAL_Delay(30); // 简单的去抖动延时
     }
 } 
 
