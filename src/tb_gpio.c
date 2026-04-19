@@ -3,10 +3,18 @@
 
 void tb_gpio_init(void)
 {
-    /* 使能 AFIO 和 GPIOC 时钟，后面舵机口和重映射都要用到 */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    /* 使能 AFIO、GPIOB、GPIOC 时钟 */
     __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
 
+    /* KEY 接在 PB2，按下默认拉低，这里配置成上拉输入 */
+    GPIO_InitStruct.Pin = KEY_GPIO_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(KEY_GPIO_PORT, &GPIO_InitStruct);
 }
 
 void dj_io_init(void)
@@ -42,4 +50,10 @@ void dj_io_set(u8 index, u8 level)
     default:
         break;
     }
+}
+
+u8 key_read(void)
+{
+    /* 按键按下为低电平，这里统一转换成 1=按下, 0=未按下 */
+    return (HAL_GPIO_ReadPin(KEY_GPIO_PORT, KEY_GPIO_PIN) == GPIO_PIN_RESET) ? 0 : 1;
 }

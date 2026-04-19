@@ -4,6 +4,9 @@
 #include "tb_gpio.h"
 #include "tb_rcc.h"
 #include "tb_timer.h"
+
+#define SERVO3_MAX 1300
+#define SERVO3_TIGHT 1650
 #define ARM_TASK_STEP_NUM 5   // 机械臂动作步骤数，根据实际任务调整
 
 /* 机械臂姿态结构体 */
@@ -34,14 +37,27 @@ int main(void)
     dj_io_init();       //舵机相关GPIO初始化
     TIM2_Int_Init(20000 - 1, 72 - 1); // TIM2 每 20ms 进一次中断
 
+    static u16 servo_pulse = SERVO3_MAX;
+    static u8 servo_id = 3;
+    static u8 last_key_state = 0;
+    static u8 cur_key_state = 0;
+    pwmServo_angle_set(servo_id, servo_pulse, 1000);
+
     while (1)
     {
-        pwmServo_angle_set(0, 1500, 1000); // 测试：将舵机0设置到1500us，过渡时间1000ms
-        HAL_Delay(2000); // 等待2秒
-        pwmServo_angle_set(0, 2000, 1000); // 测试：将舵机0设置到2000us，过渡时间1000ms
-        HAL_Delay(2000); // 等待2秒
+        cur_key_state = key_read(); // 读取按键状态
+        if(last_key_state == 0 && cur_key_state == 1){ // 按键按下
+            /*servo_pulse +=20;
+            if(servo_pulse > 2500){
+                servo_pulse = 500;
+            }*/
+            servo_pulse = SERVO3_TIGHT;
+            pwmServo_angle_set(servo_id, servo_pulse, 1000);
+        }
+        last_key_state = cur_key_state;
+        HAL_Delay(30); // 简单的去抖动延时
     }
-}
+} 
 
 
 
