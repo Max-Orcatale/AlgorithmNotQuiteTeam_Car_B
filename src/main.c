@@ -4,16 +4,12 @@
 #include "tb_gpio.h"
 #include "tb_rcc.h"
 #include "tb_timer.h"
+#include "tb_uart.h"
 
 #define SERVO3_MAX 1300
 #define SERVO3_TIGHT 1650
 #define ARM_TASK_STEP_NUM 5   // 机械臂动作步骤数，根据实际任务调整
 
-/* 机械臂姿态结构体 */
-typedef struct {
-    u16 pulse[4];   // 4个舵机各自的目标脉宽
-    u16 time_ms;    // 这一步用多久完成
-} ArmPose;    
 ArmPose g_arm_task[ARM_TASK_STEP_NUM] = {
     // 这里应该有 ARM_TASK_STEP_NUM 个 ArmPose 结构体，代表机械臂的动作序列
 };      
@@ -36,25 +32,35 @@ int main(void)
     tb_gpio_init();     //版极 GPIO 基础初始化
     dj_io_init();       //舵机相关GPIO初始化
     TIM2_Int_Init(20000 - 1, 72 - 1); // TIM2 每 20ms 进一次中断
+    usart3_init();      // USART3 初始化
 
-    static u16 servo_pulse = SERVO3_MAX;
-    static u8 servo_id = 3;
-    static u8 last_key_state = 0;
-    static u8 cur_key_state = 0;
-    pwmServo_angle_set(servo_id, servo_pulse, 1000);
+    //static u16 servo_pulse = SERVO3_MAX;
+    //static u8 servo_id = 3;
+    //static u8 last_key_state = 0;
+    //static u8 cur_key_state = 0;
+    //pwmServo_angle_set(servo_id, servo_pulse, 1000);
+    char rx_buf[64];
+    ArmPose temp_pose = {{1500, 1500, 1500, 1500}, 500};
 
     while (1)
     {
-        cur_key_state = key_read(); // 读取按键状态
+        /*cur_key_state = key_read(); // 读取按键状态
         if(last_key_state == 0 && cur_key_state == 1){ // 按键按下
-            /*servo_pulse +=20;
+            servo_pulse +=20;
             if(servo_pulse > 2500){
                 servo_pulse = 500;
-            }*/
-            servo_pulse = SERVO3_TIGHT;
+            }
             pwmServo_angle_set(servo_id, servo_pulse, 1000);
         }
-        last_key_state = cur_key_state;
+        last_key_state = cur_key_state;*/
+        
+        if(usart3_read_line(rx_buf, sizeof(rx_buf))){
+            if(usart3_parse_pulses(rx_buf, &temp_pose)){
+                do_pose(&temp_pose); // 执行串口解析出的姿态
+                usart3_send_string("OK!\n");
+            }
+        }
+
         HAL_Delay(30); // 简单的去抖动延时
     }
 } 
