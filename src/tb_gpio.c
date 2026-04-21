@@ -54,6 +54,6 @@ void dj_io_set(u8 index, u8 level)
 
 u8 key_read(void)
 {
-    /* 按键按下为低电平，这里统一转换成 1=按下, 0=未按下 */
+    /* 按键按下为低电平，这里统一转换成 0=按下, 1=未按下 */
     return (HAL_GPIO_ReadPin(KEY_GPIO_PORT, KEY_GPIO_PIN) == GPIO_PIN_RESET) ? 0 : 1;
 }

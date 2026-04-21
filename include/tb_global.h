@@ -4,7 +4,7 @@
 
 #include "tb_type.h"
 
-#define DJ_NUM 4
+#include "main.h"
 
 /* 单个舵机的运动状态 */
 typedef struct {
