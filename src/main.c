@@ -33,7 +33,7 @@ int main(void)
     ArmAction pick = {
         .poses = (ArmPose[]){
             {{1800, 2400, 1650, SERVO3_LOOSE}, 2000},
-            {{1880, 1000, 1650, SERVO3_TIGHT}, 2000},
+            {{1900, 2400, 1650, SERVO3_TIGHT}, 2000},
             {{1500, 1500, 1650, SERVO3_TIGHT}, 2000}
         },
         .step_count = 3
@@ -41,7 +41,7 @@ int main(void)
 
     ArmAction direct = {
         .poses = (ArmPose[]){
-            {{1700, 2100, 1650, SERVO3_TIGHT}, 2000}
+            {{1730, 2100, 1650, SERVO3_TIGHT}, 2000}
         },
         .step_count = 1
     };
@@ -66,7 +66,6 @@ int main(void)
     const ArmAction *current_action = 0;
     
     char rx_buf[64];
-    ArmPose temp_pose = {{1500, 1000, 1500, 1500}, 500};
 
     while (1)
     {
