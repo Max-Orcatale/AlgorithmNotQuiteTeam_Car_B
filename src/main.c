@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "main.h"
 #include "tb_encoder.h"
 #include "tb_global.h"
@@ -21,13 +23,14 @@ typedef enum
 } AppStage_t;
 
 static const RouteStep_t route1_steps[] = {
-    {2, TURN_LEFT},
     {1, TURN_STRAIGHT}
 };
 
 static const RouteStep_t route2_steps[] = {
-    {1, TURN_RIGHT},
-    {2, TURN_STRAIGHT}
+    {1, TURN_LEFT},
+    {2, TURN_STRAIGHT},
+    {3, TURN_LEFT},
+    {1, TURN_LEFT}
 };
 
 static const Route_t route1 = {
@@ -42,6 +45,7 @@ static const Route_t route2 = {
 
 int main(void)
 {
+
     HAL_Init();         //HAL 库初始化
     tb_rcc_init();      //系统时钟初始化
     tb_global_init();   //全局状态初始化
@@ -57,14 +61,16 @@ int main(void)
 
     AppStage_t stage = APP_STAGE_ROUTE1;
 
+
     while (1)
     {
+    
         tb_servo_update();
 
         switch (stage)
         {
         case APP_STAGE_ROUTE1:
-            if (run_route(&route1) != 0U)
+            if (run_forward_ms(2000, 1300) != 0U)
             {
                 stage = APP_STAGE_ARM1;
             }

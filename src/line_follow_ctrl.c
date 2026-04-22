@@ -4,6 +4,12 @@
 
 static const int8_t s_weight[8] = {-7, -5, -3, -1, 1, 3, 5, 7};
 
+/* 当前巡线模块恢复为：0 表示检测到黑线，1 表示白底。 */
+static uint8_t line_sensor_is_black(uint8_t bit_value)
+{
+    return (bit_value == 0U) ? 1U : 0U;
+}
+
 typedef struct
 {
     LineFollowCtrl_t follow;
@@ -35,7 +41,7 @@ static int16_t line_follow_compute_error(const LineSensorData_t *data, uint8_t *
 
     for (i = 0; i < 8U; i++)
     {
-        if (data->bit[i] == 0U)
+        if (line_sensor_is_black(data->bit[i]) != 0U)
         {
             sum_w += s_weight[i];
             sum_n++;
@@ -54,17 +60,20 @@ static int16_t line_follow_compute_error(const LineSensorData_t *data, uint8_t *
 
 static uint8_t route_is_all_black(const LineSensorData_t *data)
 {
-    uint8_t i;
-
-    for (i = 0; i < 8U; i++)
+    if (data == 0)
     {
-        if (data->bit[i] != 0U)
-        {
-            return 0U;
-        }
+        return 0U;
     }
 
-    return 1U;
+    if ((line_sensor_is_black(data->bit[2]) != 0U) &&
+        (line_sensor_is_black(data->bit[3]) != 0U) &&
+        (line_sensor_is_black(data->bit[5]) != 0U) &&
+        (line_sensor_is_black(data->bit[7]) != 0U))
+    {
+        return 1U;
+    }
+
+    return 0U;
 }
 
 static void route_start_turn(TurnAction_t turn)

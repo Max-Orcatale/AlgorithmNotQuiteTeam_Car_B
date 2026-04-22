@@ -16,7 +16,7 @@ static const ArmAction *s_current_action = 0;
 
 static const ArmPose s_pick_poses[] = {
     {{1800, 2400, 1650, SERVO3_LOOSE}, 2000},
-    {{1900, 2400, 1650, SERVO3_TIGHT}, 2000},
+    {{1900, 2420, 1650, SERVO3_TIGHT}, 2000},
     {{1500, 1500, 1650, SERVO3_TIGHT}, 2000}
 };
 
@@ -29,7 +29,7 @@ static const ArmPose s_place_poses[] = {
     {{1700, 2100, 1650, SERVO3_TIGHT}, 2000},
     {{1500, 2100, 1650, SERVO3_TIGHT}, 2000},
     {{1750, 1800, 1650, SERVO3_TIGHT}, 2000},
-    {{1770, 1800, 1650, SERVO3_TIGHT}, 2000},
+    {{1790, 1800, 1650, SERVO3_TIGHT}, 2000},
     {{1600, 2100, 1650, SERVO3_LOOSE}, 2000}
 };
 

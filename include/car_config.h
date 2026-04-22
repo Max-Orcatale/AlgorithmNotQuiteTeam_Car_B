@@ -14,14 +14,22 @@
 #define LINE_SENSOR_I2C_ADDR_7BIT   0x12U
 #define LINE_SENSOR_REG_ADJUST_MODE 0x01U
 #define LINE_SENSOR_REG_DATA        0x30U
+#define LINE_I2C_DELAY_CYCLES       64U
+#define LINE_I2C_ACK_TIMEOUT        200U
 
 /* 电机 PWM 参数 */
 #define MOTOR_PWM_MAX        2000
-#define MOTOR_PWM_PRESCALER  (0U)
-#define MOTOR_PWM_PERIOD     (3599U)
+#define MOTOR_PWM_PRESCALER  (1U)
+#define MOTOR_PWM_PERIOD     (1999U)
+
+/* 电机方向修正：正值表示保持当前方向，负值表示软件反相 */
+#define MOTOR1_DIR_SIGN      (-1)
+#define MOTOR2_DIR_SIGN      (1)
+#define MOTOR3_DIR_SIGN      (-1)
+#define MOTOR4_DIR_SIGN      (1)
 
 /* 巡线控制参数 */
-#define FOLLOW_BASE_SPEED             1200
+#define FOLLOW_BASE_SPEED             1500
 #define FOLLOW_KP                     380
 #define FOLLOW_KD                     220
 #define FOLLOW_LOST_LINE_BRAKE_SPEED  600

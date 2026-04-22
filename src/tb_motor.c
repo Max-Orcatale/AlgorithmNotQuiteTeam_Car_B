@@ -2,6 +2,7 @@
 
 #include "car_config.h"
 #include "main.h"
+#include "stm32f1xx_hal_gpio_ex.h"
 
 static TIM_HandleTypeDef htim1;
 static TIM_HandleTypeDef htim8;
@@ -23,9 +24,13 @@ static void motor_gpio_init(void)
 {
     GPIO_InitTypeDef gpio = {0};
 
+    __HAL_RCC_AFIO_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
+
+    /* Align TIM1 outputs with the board wiring used by the C26 V2.2 reference. */
+    __HAL_AFIO_REMAP_TIM1_PARTIAL();
 
     gpio.Mode = GPIO_MODE_AF_PP;
     gpio.Pull = GPIO_NOPULL;
@@ -134,20 +139,22 @@ void tb_motor_init(void)
 
 void tb_motor_set_speed(u8 motor_id, int16_t speed)
 {
-    speed = motor_clamp_speed(speed);
-
     switch (motor_id)
     {
     case 0:
+        speed = motor_clamp_speed((int16_t)(speed * MOTOR1_DIR_SIGN));
         motor_write_pair(&htim8, TIM_CHANNEL_1, TIM_CHANNEL_2, speed);
         break;
     case 1:
+        speed = motor_clamp_speed((int16_t)(speed * MOTOR2_DIR_SIGN));
         motor_write_pair(&htim8, TIM_CHANNEL_3, TIM_CHANNEL_4, speed);
         break;
     case 2:
+        speed = motor_clamp_speed((int16_t)(speed * MOTOR3_DIR_SIGN));
         motor_write_pair(&htim1, TIM_CHANNEL_2, TIM_CHANNEL_3, speed);
         break;
     case 3:
+        speed = motor_clamp_speed((int16_t)(speed * MOTOR4_DIR_SIGN));
         motor_write_pair(&htim1, TIM_CHANNEL_1, TIM_CHANNEL_4, speed);
         break;
     default:
