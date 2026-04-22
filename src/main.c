@@ -1,24 +1,44 @@
 #include "main.h"
-#include "tb_delay.h"
+#include "tb_encoder.h"
 #include "tb_global.h"
 #include "tb_gpio.h"
+#include "line_follow_ctrl.h"
+#include "tb_line_sensor.h"
+#include "tb_motor.h"
 #include "tb_rcc.h"
-#include "tb_timer.h"
+#include "tb_servo.h"
 #include "tb_uart.h"
 
+/*状态机*/
+typedef enum
+{
+    APP_STAGE_ROUTE1 = 0,
+    APP_STAGE_ARM1,
+    APP_STAGE_ROUTE2,
+    APP_STAGE_ARM2,
+    APP_STAGE_ARM3,
+    APP_STAGE_DONE
+} AppStage_t;
 
-#define SERVO3_LOOSE 1500
-#define SERVO3_TIGHT 1710
+static const RouteStep_t route1_steps[] = {
+    {2, TURN_LEFT},
+    {1, TURN_STRAIGHT}
+};
 
-static u8 hand_busy = 0;
-  
+static const RouteStep_t route2_steps[] = {
+    {1, TURN_RIGHT},
+    {2, TURN_STRAIGHT}
+};
 
+static const Route_t route1 = {
+    route1_steps,
+    (u16)(sizeof(route1_steps) / sizeof(route1_steps[0]))
+};
 
-/*机械臂层控制函数*/
-static void do_pose(const ArmPose *pose);
-static u8 check_dj_state(void);
-static void handle_action(const ArmAction *action);
-
+static const Route_t route2 = {
+    route2_steps,
+    (u16)(sizeof(route2_steps) / sizeof(route2_steps[0]))
+};
 
 int main(void)
 {
@@ -26,148 +46,78 @@ int main(void)
     tb_rcc_init();      //系统时钟初始化
     tb_global_init();   //全局状态初始化
     tb_gpio_init();     //版极 GPIO 基础初始化
+    tb_line_sensor_init(); // 软件I2C巡线模块初始化
+    tb_motor_init();    // 电机PWM初始化
+    tb_encoder_init();  // 电机编码器初始化
+    route_runner_init(); // 走格子/路线状态机初始化
     dj_io_init();       //舵机相关GPIO初始化
-    TIM2_Int_Init(20000 - 1, 72 - 1); // TIM2 每 20ms 进一次中断
+    tb_servo_init();    // 舵机调度定时器初始化
+    tb_servo_demo_init(); // 机械臂状态初始化
     usart3_init();      // USART3 初始化
 
-    ArmAction pick = {
-        .poses = (ArmPose[]){
-            {{1800, 2400, 1650, SERVO3_LOOSE}, 2000},
-            {{1900, 2400, 1650, SERVO3_TIGHT}, 2000},
-            {{1500, 1500, 1650, SERVO3_TIGHT}, 2000}
-        },
-        .step_count = 3
-    };
-
-    ArmAction direct = {
-        .poses = (ArmPose[]){
-            {{1730, 2100, 1650, SERVO3_TIGHT}, 2000}
-        },
-        .step_count = 1
-    };
-
-    ArmAction place = {
-        .poses = (ArmPose[]){
-            {{1700, 2100, 1650, SERVO3_LOOSE}, 2000},
-            {{1700, 2100, 1650, SERVO3_TIGHT}, 2000},
-            {{1500, 2100, 1650, SERVO3_TIGHT}, 2000}, //抬起
-            {{1750, 1800, 1650, SERVO3_TIGHT}, 2000}, //套
-            {{1770, 1800, 1650, SERVO3_TIGHT}, 2000}, //缓慢靠近
-            {{1600, 2100, 1650, SERVO3_LOOSE}, 2000}  //松开
-        },
-        .step_count = 6
-    };
-
-    ArmAction acts[3] = {pick, direct, place};
-
-    static u8 last_key_state = 0;
-    static u8 cur_key_state = 0;
-    u8 act_index = 0;
-    const ArmAction *current_action = 0;
-    
-    char rx_buf[64];
+    AppStage_t stage = APP_STAGE_ROUTE1;
 
     while (1)
     {
-        /*cur_key_state = key_read(); // 读取按键状态
-        if(last_key_state == 0 && cur_key_state == 1){ // 按键按下
-            servo_pulse +=20;
-            if(servo_pulse > 2500){
-                servo_pulse = 500;
-            }
-            pwmServo_angle_set(servo_id, servo_pulse, 1000);
-        }
-        last_key_state = cur_key_state;*/
-        
-        /*if(usart3_read_line(rx_buf, sizeof(rx_buf))){
-            if(usart3_parse_pulses(rx_buf, &temp_pose)){
-                do_pose(&temp_pose); // 执行串口解析出的姿态
-                usart3_send_string("OK!\n");
-            }
-        }*/
+        tb_servo_update();
 
-        cur_key_state = key_read();
-
-        if (last_key_state == 0 && cur_key_state == 1)
+        switch (stage)
         {
-            if (hand_busy == 0)
+        case APP_STAGE_ROUTE1:
+            if (run_route(&route1) != 0U)
             {
-                current_action = &acts[act_index];
-                hand_busy = 1;
+                stage = APP_STAGE_ARM1;
+            }
+            break;
 
-                act_index++;
-                if (act_index >= 3) {
-                    act_index = 0;
+        case APP_STAGE_ARM1:
+            route_runner_abort();
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&pick) != 0U)
+                {
+                    stage = APP_STAGE_ROUTE2;
                 }
             }
-        }
+            break;
 
-        last_key_state = cur_key_state;
-
-        if (current_action != 0)
-        {
-            handle_action(current_action);
-
-            if (hand_busy == 0)
+        case APP_STAGE_ROUTE2:
+            if (tb_servo_is_busy() == 0U)
             {
-                current_action = 0;
+                if (run_route(&route2) != 0U)
+                {
+                    stage = APP_STAGE_ARM2;
+                }
             }
+            break;
+
+        case APP_STAGE_ARM2:
+            route_runner_abort();
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&direct) != 0U)
+                {
+                    stage = APP_STAGE_ARM3;
+                }
+            }
+            break;
+
+        case APP_STAGE_ARM3:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&place) != 0U)
+                {
+                    stage = APP_STAGE_DONE;
+                }
+            }
+            break;
+
+        case APP_STAGE_DONE:
+        default:
+            route_runner_abort();
+            break;
         }
     }
-}
-
-
-
-
-/* 检查舵机是否全部到位，1表示未到位，0表示全部到位 */
-static u8 check_dj_state(void)
-{
-    u8 i;
-
-    for (i = 0; i < DJ_NUM; i++)
-    {
-        if (duoji_doing[i].inc != 0)
-        {
-            return 1;   // 还有舵机在动
-        }
-    }
-
-    return 0;           // 全部到位
-}
-
-static void do_pose(const ArmPose *pose)
-{
-    u8 i;
-    for(i=0; i<DJ_NUM; i++){
-        pwmServo_angle_set(i, pose->pulse[i], pose->time_ms);
-    }
-}
-
-static void handle_action(const ArmAction *action)
-{
-    /*状态机控制变量*/
-    static u8 g_current_step = 0; // 当前机械臂动作步骤
-    static u8 g_step_started = 0; // 当前步骤是否已开始执行
-    
-    if(action == 0){
-        return;
-    }
-
-    if(g_current_step >= action->step_count){
-        g_current_step = 0; // 重置步骤计数器
-        g_step_started = 0; // 重置步骤开始标志
-        hand_busy = 0; // 标记机械臂空闲
-        return;
-    }
-    if(!g_step_started){
-        hand_busy = 1;
-        do_pose(&(action->poses[g_current_step]));
-        g_step_started = 1;
-    }else if(check_dj_state() == 0){
-        g_current_step++;
-        g_step_started = 0;
-    }
-
 }
 
 // 错误处理函数

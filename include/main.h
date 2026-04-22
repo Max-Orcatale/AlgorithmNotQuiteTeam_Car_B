@@ -2,9 +2,8 @@
 #define __MAIN_H
 
 #include "stm32f1xx_hal.h"
+#include "car_config.h"
 #include "tb_type.h"
-
-#define DJ_NUM 4
 
 typedef struct {
     u16 pulse[DJ_NUM];

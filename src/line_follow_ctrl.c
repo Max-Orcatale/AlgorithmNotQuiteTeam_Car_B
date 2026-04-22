@@ -1,0 +1,333 @@
+#include "line_follow_ctrl.h"
+
+#include "tb_motor.h"
+
+static const int8_t s_weight[8] = {-7, -5, -3, -1, 1, 3, 5, 7};
+
+typedef struct
+{
+    LineFollowCtrl_t follow;
+    const Route_t *active_route;
+    uint16_t current_step;
+    uint16_t cells_in_step;
+    uint8_t last_all_black;
+    uint32_t last_black_tick;
+    RouteRunnerState_t state;
+    uint32_t turn_end_tick;
+} RouteRunnerCtrl_t;
+
+typedef struct
+{
+    uint8_t active;
+    uint32_t start_tick;
+    uint32_t duration_ms;
+    int16_t speed;
+} ForwardRunnerCtrl_t;
+
+static RouteRunnerCtrl_t s_runner;
+static ForwardRunnerCtrl_t s_forward;
+
+static int16_t line_follow_compute_error(const LineSensorData_t *data, uint8_t *valid)
+{
+    int16_t sum_w = 0;
+    int16_t sum_n = 0;
+    uint8_t i;
+
+    for (i = 0; i < 8U; i++)
+    {
+        if (data->bit[i] == 0U)
+        {
+            sum_w += s_weight[i];
+            sum_n++;
+        }
+    }
+
+    if (sum_n == 0)
+    {
+        *valid = 0U;
+        return 0;
+    }
+
+    *valid = 1U;
+    return (int16_t)(sum_w / sum_n);
+}
+
+static uint8_t route_is_all_black(const LineSensorData_t *data)
+{
+    uint8_t i;
+
+    for (i = 0; i < 8U; i++)
+    {
+        if (data->bit[i] != 0U)
+        {
+            return 0U;
+        }
+    }
+
+    return 1U;
+}
+
+static void route_start_turn(TurnAction_t turn)
+{
+    uint32_t now = HAL_GetTick();
+
+    switch (turn)
+    {
+    case TURN_LEFT:
+        tb_motor_set_all(-ROUTE_TURN_SPEED, ROUTE_TURN_SPEED,
+                         -ROUTE_TURN_SPEED, ROUTE_TURN_SPEED);
+        s_runner.turn_end_tick = now + ROUTE_LEFT_TURN_MS;
+        s_runner.state = ROUTE_RUNNER_TURNING;
+        break;
+
+    case TURN_RIGHT:
+        tb_motor_set_all(ROUTE_TURN_SPEED, -ROUTE_TURN_SPEED,
+                         ROUTE_TURN_SPEED, -ROUTE_TURN_SPEED);
+        s_runner.turn_end_tick = now + ROUTE_RIGHT_TURN_MS;
+        s_runner.state = ROUTE_RUNNER_TURNING;
+        break;
+
+    case TURN_BACK:
+        tb_motor_set_all(ROUTE_TURN_SPEED, -ROUTE_TURN_SPEED,
+                         ROUTE_TURN_SPEED, -ROUTE_TURN_SPEED);
+        s_runner.turn_end_tick = now + ROUTE_BACK_TURN_MS;
+        s_runner.state = ROUTE_RUNNER_TURNING;
+        break;
+
+    case TURN_STRAIGHT:
+    default:
+        s_runner.state = ROUTE_RUNNER_FOLLOWING;
+        break;
+    }
+}
+
+static void route_begin(const Route_t *route)
+{
+    LineFollow_Init(&s_runner.follow);
+    s_runner.active_route = route;
+    s_runner.current_step = 0U;
+    s_runner.cells_in_step = 0U;
+    s_runner.last_all_black = 0U;
+    s_runner.last_black_tick = 0U;
+    s_runner.turn_end_tick = 0U;
+    s_runner.state = ROUTE_RUNNER_FOLLOWING;
+}
+
+void LineFollow_Init(LineFollowCtrl_t *ctrl)
+{
+    if (ctrl == 0)
+    {
+        return;
+    }
+
+    ctrl->base_speed = FOLLOW_BASE_SPEED;
+    ctrl->kp = FOLLOW_KP;
+    ctrl->kd = FOLLOW_KD;
+    ctrl->last_error = 0;
+}
+
+void LineFollow_Update(LineFollowCtrl_t *ctrl, const LineSensorData_t *data)
+{
+    int16_t error;
+    int16_t d_error;
+    int32_t turn;
+    int16_t left_speed;
+    int16_t right_speed;
+    uint8_t valid = 0U;
+
+    if ((ctrl == 0) || (data == 0))
+    {
+        return;
+    }
+
+    error = line_follow_compute_error(data, &valid);
+    if (valid == 0U)
+    {
+        tb_motor_set_all(-FOLLOW_LOST_LINE_BRAKE_SPEED,
+                         -FOLLOW_LOST_LINE_BRAKE_SPEED,
+                         -FOLLOW_LOST_LINE_BRAKE_SPEED,
+                         -FOLLOW_LOST_LINE_BRAKE_SPEED);
+        return;
+    }
+
+    d_error = (int16_t)(error - ctrl->last_error);
+    ctrl->last_error = error;
+
+    turn = (int32_t)ctrl->kp * error + (int32_t)ctrl->kd * d_error;
+    left_speed = (int16_t)(ctrl->base_speed + turn);
+    right_speed = (int16_t)(ctrl->base_speed - turn);
+
+    tb_motor_set_all(left_speed, right_speed, left_speed, right_speed);
+}
+
+void route_runner_init(void)
+{
+    LineFollow_Init(&s_runner.follow);
+    s_runner.active_route = 0;
+    s_runner.current_step = 0U;
+    s_runner.cells_in_step = 0U;
+    s_runner.last_all_black = 0U;
+    s_runner.last_black_tick = 0U;
+    s_runner.state = ROUTE_RUNNER_IDLE;
+    s_runner.turn_end_tick = 0U;
+}
+
+void forward_runner_init(void)
+{
+    s_forward.active = 0U;
+    s_forward.start_tick = 0U;
+    s_forward.duration_ms = 0U;
+    s_forward.speed = 0;
+}
+
+uint8_t run_route(const Route_t *route)
+{
+    LineSensorData_t sensor_data;
+    uint8_t all_black;
+    uint32_t now;
+    TurnAction_t turn;
+
+    if ((route == 0) || (route->steps == 0) || (route->step_count == 0U))
+    {
+        return 1U;
+    }
+
+    if ((s_runner.state == ROUTE_RUNNER_IDLE) ||
+        (s_runner.state == ROUTE_RUNNER_FINISHED) ||
+        (s_runner.active_route != route))
+    {
+        route_begin(route);
+    }
+
+    if (LineSensor_Read(&sensor_data) != HAL_OK)
+    {
+        s_runner.state = ROUTE_RUNNER_ERROR;
+        tb_motor_stop_all();
+        return 0U;
+    }
+
+    now = HAL_GetTick();
+
+    if (s_runner.state == ROUTE_RUNNER_TURNING)
+    {
+        if ((int32_t)(now - s_runner.turn_end_tick) >= 0)
+        {
+            s_runner.state = ROUTE_RUNNER_FOLLOWING;
+            tb_motor_stop_all();
+        }
+        return 0U;
+    }
+
+    if (s_runner.state == ROUTE_RUNNER_ERROR)
+    {
+        tb_motor_stop_all();
+        return 0U;
+    }
+
+    if (s_runner.state == ROUTE_RUNNER_FINISHED)
+    {
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    LineFollow_Update(&s_runner.follow, &sensor_data);
+
+    all_black = route_is_all_black(&sensor_data);
+    if ((all_black == 1U) &&
+        (s_runner.last_all_black == 0U) &&
+        ((now - s_runner.last_black_tick) > ROUTE_BLACK_DEBOUNCE_MS))
+    {
+        s_runner.last_black_tick = now;
+        s_runner.cells_in_step++;
+
+        if (s_runner.cells_in_step >= route->steps[s_runner.current_step].cells)
+        {
+            turn = route->steps[s_runner.current_step].turn;
+            s_runner.cells_in_step = 0U;
+            s_runner.current_step++;
+
+            if (s_runner.current_step >= route->step_count)
+            {
+                s_runner.state = ROUTE_RUNNER_FINISHED;
+                tb_motor_stop_all();
+                return 1U;
+            }
+
+            route_start_turn(turn);
+        }
+    }
+
+    s_runner.last_all_black = all_black;
+    return 0U;
+}
+
+void route_runner_abort(void)
+{
+    s_runner.active_route = 0;
+    s_runner.current_step = 0U;
+    s_runner.cells_in_step = 0U;
+    s_runner.last_all_black = 0U;
+    s_runner.last_black_tick = 0U;
+    s_runner.turn_end_tick = 0U;
+    s_runner.state = ROUTE_RUNNER_IDLE;
+    tb_motor_stop_all();
+}
+
+RouteRunnerState_t route_runner_get_state(void)
+{
+    return s_runner.state;
+}
+
+uint16_t route_runner_get_step_index(void)
+{
+    return s_runner.current_step;
+}
+
+uint16_t route_runner_get_cells_in_step(void)
+{
+    return s_runner.cells_in_step;
+}
+
+uint8_t run_forward_ms(uint32_t duration_ms, int16_t speed)
+{
+    uint32_t now;
+
+    if (duration_ms == 0U)
+    {
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    now = HAL_GetTick();
+
+    if ((s_forward.active == 0U) ||
+        (s_forward.duration_ms != duration_ms) ||
+        (s_forward.speed != speed))
+    {
+        s_forward.active = 1U;
+        s_forward.start_tick = now;
+        s_forward.duration_ms = duration_ms;
+        s_forward.speed = speed;
+        tb_motor_set_all(speed, speed, speed, speed);
+        return 0U;
+    }
+
+    if ((now - s_forward.start_tick) >= s_forward.duration_ms)
+    {
+        tb_motor_stop_all();
+        s_forward.active = 0U;
+        return 1U;
+    }
+
+    tb_motor_set_all(speed, speed, speed, speed);
+    return 0U;
+}
+
+void forward_runner_abort(void)
+{
+    s_forward.active = 0U;
+    s_forward.start_tick = 0U;
+    s_forward.duration_ms = 0U;
+    s_forward.speed = 0;
+    tb_motor_stop_all();
+}

@@ -36,7 +36,7 @@ void dj_io_init(void);
 /* 设置舵机 GPIO 输出电平，index 0-3 对应 SERVO0-SERVO3 */
 void dj_io_set(u8 index, u8 level);
 
-/* 读取按键状态，返回 1 表示按下，0 表示未按下 */
+/* 读取按键状态，返回 0 表示按下，1 表示未按下 */
 u8 key_read(void);
 
 

@@ -5,16 +5,29 @@ void tb_gpio_init(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    /* 使能 AFIO、GPIOB、GPIOC 时钟 */
+    /* 使能 AFIO、GPIOA、GPIOB、GPIOC 时钟 */
     __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
+
+    /* M4 编码器占用 PA15/PB3，关闭 JTAG 只保留 SWD */
+    __HAL_AFIO_REMAP_SWJ_NOJTAG();
+    __HAL_AFIO_REMAP_TIM2_ENABLE();
 
     /* KEY 接在 PB2，按下默认拉低，这里配置成上拉输入 */
     GPIO_InitStruct.Pin = KEY_GPIO_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(KEY_GPIO_PORT, &GPIO_InitStruct);
+
+    /* 软件 I2C 空闲态拉高 */
+    GPIO_InitStruct.Pin = LINE_SDA_PIN | LINE_SCL_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(LINE_SDA_GPIO_PORT, LINE_SDA_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LINE_SCL_GPIO_PORT, LINE_SCL_PIN, GPIO_PIN_SET);
 }
 
 void dj_io_init(void)
