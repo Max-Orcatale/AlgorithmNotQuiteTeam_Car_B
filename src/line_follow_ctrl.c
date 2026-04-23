@@ -4,6 +4,16 @@
 
 static const int8_t s_weight[8] = {-7, -4, -3, -1, 1, 3, 4, 7};
 
+typedef struct
+{
+    int16_t kp;
+    int16_t kd;
+} FollowTune_t;
+
+static const FollowTune_t s_follow_forward_tunes[] = {
+    {20, 50}
+};
+
 /* 当前巡线模块恢复为：1 表示检测到黑线，0 表示白底。 */
 static uint8_t line_sensor_is_black(uint8_t bit_value)
 {
@@ -33,8 +43,36 @@ typedef struct
     int16_t speed;
 } ForwardRunnerCtrl_t;
 
+typedef struct
+{
+    uint8_t active;
+    uint32_t start_tick;
+    uint32_t duration_ms;
+    int16_t speed;
+    LineFollowCtrl_t follow;
+} FollowForwardRunnerCtrl_t;
+
+typedef struct
+{
+    uint8_t active;
+    uint32_t start_tick;
+} AdjustRunnerCtrl_t;
+
 static RouteRunnerCtrl_t s_runner;
 static ForwardRunnerCtrl_t s_forward;
+static FollowForwardRunnerCtrl_t s_follow_forward;
+static AdjustRunnerCtrl_t s_adjust;
+
+static void follow_forward_apply_tune(LineFollowCtrl_t *ctrl)
+{
+    if (ctrl == 0)
+    {
+        return;
+    }
+
+    ctrl->kp = s_follow_forward_tunes[0].kp;
+    ctrl->kd = s_follow_forward_tunes[0].kd;
+}
 
 static int16_t route_get_turn_speed(void)
 {
@@ -202,6 +240,13 @@ void forward_runner_init(void)
     s_forward.start_tick = 0U;
     s_forward.duration_ms = 0U;
     s_forward.speed = 0;
+
+    s_follow_forward.active = 0U;
+    s_follow_forward.start_tick = 0U;
+    s_follow_forward.duration_ms = 0U;
+    s_follow_forward.speed = 0;
+    LineFollow_Init(&s_follow_forward.follow);
+    follow_forward_apply_tune(&s_follow_forward.follow);
 }
 
 uint8_t run_route(const Route_t *route)
@@ -380,9 +425,57 @@ uint8_t run_forward_ms(uint32_t duration_ms, int16_t speed)
     return 0U;
 }
 
+uint8_t run_forward_while_follow_line(uint32_t duration_ms, int16_t speed)
+{
+    uint32_t now;
+    LineSensorData_t sensor_data;
+
+    if (duration_ms == 0U)
+    {
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    now = HAL_GetTick();
+
+    if ((s_follow_forward.active == 0U) ||
+        (s_follow_forward.duration_ms != duration_ms) ||
+        (s_follow_forward.speed != speed))
+    {
+        s_follow_forward.active = 1U;
+        s_follow_forward.start_tick = now;
+        s_follow_forward.duration_ms = duration_ms;
+        s_follow_forward.speed = speed;
+        LineFollow_Init(&s_follow_forward.follow);
+        s_follow_forward.follow.base_speed = speed;
+        follow_forward_apply_tune(&s_follow_forward.follow);
+    }
+
+    if ((now - s_follow_forward.start_tick) >= s_follow_forward.duration_ms)
+    {
+        tb_motor_stop_all();
+        s_follow_forward.active = 0U;
+        return 1U;
+    }
+
+    if (LineSensor_Read(&sensor_data) == HAL_OK)
+    {
+        s_follow_forward.follow.base_speed = speed;
+        follow_forward_apply_tune(&s_follow_forward.follow);
+        LineFollow_Update(&s_follow_forward.follow, &sensor_data);
+    }
+    else
+    {
+        tb_motor_set_all(speed, speed, speed, speed);
+    }
+
+    return 0U;
+}
+
 uint8_t adjust_position(void)
 {
     LineSensorData_t sensor_data;
+    uint32_t now;
 
     if (LineSensor_Read(&sensor_data) != HAL_OK)
     {
@@ -390,23 +483,50 @@ uint8_t adjust_position(void)
         return 0U;
     }
 
-    if ((line_sensor_is_black(sensor_data.bit[2]) != 0U) &&
-        (line_sensor_is_black(sensor_data.bit[3]) != 0U) &&
-        (line_sensor_is_black(sensor_data.bit[4]) != 0U))
+    now = HAL_GetTick();
+
+    if (s_adjust.active == 0U)
     {
+        s_adjust.active = 1U;
+        s_adjust.start_tick = now;
+    }
+
+    if ((now - s_adjust.start_tick) >= 1000U)
+    {
+        s_adjust.active = 0U;
         tb_motor_stop_all();
         return 1U;
     }
 
-    if (line_sensor_is_black(sensor_data.bit[2]) != 0U)
+    if ((line_sensor_is_black(sensor_data.bit[0]) == 0U) &&
+        (line_sensor_is_black(sensor_data.bit[1]) == 0U) &&
+        (line_sensor_is_black(sensor_data.bit[2]) == 0U) &&
+        (line_sensor_is_black(sensor_data.bit[3]) != 0U) &&
+        (line_sensor_is_black(sensor_data.bit[4]) != 0U) &&
+        (line_sensor_is_black(sensor_data.bit[5]) == 0U) &&
+        (line_sensor_is_black(sensor_data.bit[6]) == 0U) &&
+        (line_sensor_is_black(sensor_data.bit[7]) == 0U))
     {
-        tb_motor_strafe_left(ADJUST_POSITION_SPEED);
+        s_adjust.active = 0U;
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    if ((line_sensor_is_black(sensor_data.bit[0]) != 0U) ||
+        (line_sensor_is_black(sensor_data.bit[1]) != 0U) ||
+        (line_sensor_is_black(sensor_data.bit[2]) != 0U) ||
+        (line_sensor_is_black(sensor_data.bit[3]) != 0U))
+    {
+        tb_motor_spin_left(ADJUST_POSITION_SPEED);
         return 0U;
     }
 
-    if (line_sensor_is_black(sensor_data.bit[4]) != 0U)
+    if ((line_sensor_is_black(sensor_data.bit[4]) != 0U) ||
+        (line_sensor_is_black(sensor_data.bit[5]) != 0U) ||
+        (line_sensor_is_black(sensor_data.bit[6]) != 0U) ||
+        (line_sensor_is_black(sensor_data.bit[7]) != 0U))
     {
-        tb_motor_strafe_right(ADJUST_POSITION_SPEED);
+        tb_motor_spin_right(ADJUST_POSITION_SPEED);
         return 0U;
     }
 
@@ -420,5 +540,10 @@ void forward_runner_abort(void)
     s_forward.start_tick = 0U;
     s_forward.duration_ms = 0U;
     s_forward.speed = 0;
+
+    s_follow_forward.active = 0U;
+    s_follow_forward.start_tick = 0U;
+    s_follow_forward.duration_ms = 0U;
+    s_follow_forward.speed = 0;
     tb_motor_stop_all();
 }

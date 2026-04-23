@@ -1,6 +1,8 @@
 #include "tb_uart.h"
 
 static UART_HandleTypeDef huart3;
+static const char *s_last_send_str = 0;
+static u8 s_uart_send_done = 0U;
 
 /* TX3-PB10, RX3-PB11 */
 void usart3_init(void){
@@ -97,6 +99,29 @@ void usart3_send_string(const char *str)
     {
         HAL_UART_Transmit(&huart3, (u8 *)str, len, 100);
     }
+}
+
+u8 uart_send(const char *str)
+{
+    if (str == 0)
+    {
+        return 0U;
+    }
+
+    if ((s_uart_send_done == 0U) || (s_last_send_str != str))
+    {
+        usart3_send_string(str);
+        s_last_send_str = str;
+        s_uart_send_done = 1U;
+    }
+
+    return 1U;
+}
+
+void uart_send_reset(void)
+{
+    s_last_send_str = 0;
+    s_uart_send_done = 0U;
 }
 
 u8 usart3_parse_pulses(const char *str, ArmPose *pose)

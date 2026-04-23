@@ -30,20 +30,20 @@
 
 /* 巡线控制参数 */
 #define FOLLOW_BASE_SPEED             1300
-#define FOLLOW_KP                     150
+#define FOLLOW_KP                     130
 #define FOLLOW_KD                     220
 #define FOLLOW_LOST_LINE_BRAKE_SPEED  1300
 
 /* 路线控制参数 */
 #define ROUTE_BLACK_DEBOUNCE_MS 700U
-#define ROUTE_PRETURN_FORWARD_MS 350U
-#define ROUTE_LEFT_TURN_MS      1650U
-#define ROUTE_RIGHT_TURN_MS     1650U
+#define ROUTE_PRETURN_FORWARD_MS 360U
+#define ROUTE_LEFT_TURN_MS      1655U
+#define ROUTE_RIGHT_TURN_MS     1655U
 #define ROUTE_BACK_TURN_MS      3200U
 #define ROUTE_TURN_SPEED        1300
 
 /* 位置微调参数 */
-#define ADJUST_POSITION_SPEED   1200
+#define ADJUST_POSITION_SPEED   1180
 
 /* 舵机调度定时器：用 TIM6 */
 #define SERVO_TIMER_PRESCALER (72U - 1U)

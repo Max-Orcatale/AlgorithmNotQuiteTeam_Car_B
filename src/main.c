@@ -14,20 +14,21 @@
 /*状态机*/
 typedef enum
 {
-    APP_STAGE_ROUTE1 = 0,
+    WIND = 0,
+    APP_STAGE_ROUTE1,
     APP_STAGE_ARM1,
     APP_STAGE_ROUTE2,
     APP_STAGE_ARM2,
-    APP_STAGE_ADJUST,
     APP_STAGE_ROUTE3,
     APP_STAGE_ARM3,
+    APP_STAGE_ROUTE4,
+    APP_STAGE_ROUTE5,
+    APP_STAGE_ROUTE6,
+    UNWIND,
     APP_STAGE_DONE
 } AppStage_t;
 
 //实际路线
-static const RouteStep_t route1_steps[] = {
-    {1, TURN_STRAIGHT}
-};
 
 static const RouteStep_t route2_steps[] = {
     {1, TURN_LEFT},
@@ -35,10 +36,23 @@ static const RouteStep_t route2_steps[] = {
     {2, TURN_LEFT}
 };
 
+static const RouteStep_t route5_steps[] = {
+    {1, TURN_RIGHT},
+    {1, TURN_LEFT},
+    {1, TURN_STRAIGHT}
+};
+
+
+
 
 static const Route_t route2 = {
     route2_steps,
     (u16)(sizeof(route2_steps) / sizeof(route2_steps[0]))
+};
+
+static const Route_t route5 = {
+    route5_steps,
+    (u16)(sizeof(route5_steps) / sizeof(route5_steps[0]))
 };
 
 
@@ -99,7 +113,7 @@ int main(void)
     tb_servo_demo_init(); // 机械臂状态初始化
     usart3_init();      // USART3 初始化
 
-    AppStage_t stage = APP_STAGE_ROUTE1;
+    AppStage_t stage = WIND;
 
 
     while (1)
@@ -133,8 +147,15 @@ int main(void)
 
         switch (stage)
         {
+        case WIND:
+            if (uart_send("wind/n") != 0U)
+            {
+                stage = APP_STAGE_ROUTE1;
+            }
+            break;
+        
         case APP_STAGE_ROUTE1:
-            if (run_forward_ms(1910, 1300) != 0U)
+            if (run_forward_while_follow_line(1890, 1300) != 0U)
             {
                 stage = APP_STAGE_ARM1;
             }
@@ -167,16 +188,6 @@ int main(void)
             {
                 if (tb_servo_start_action(&direct) != 0U)
                 {
-                    stage = APP_STAGE_ADJUST;
-                }
-            }
-            break;
-
-        case APP_STAGE_ADJUST:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (adjust_position() != 0U)
-                {
                     stage = APP_STAGE_ROUTE3;
                 }
             }
@@ -185,7 +196,7 @@ int main(void)
         case APP_STAGE_ROUTE3:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_ms(1000, 1200) != 0U)
+                if (run_forward_while_follow_line(1500, 1200) != 0U)
                 {
                     stage = APP_STAGE_ARM3;
                 }
@@ -199,11 +210,49 @@ int main(void)
             {
                 if (tb_servo_start_action(&place) != 0U)
                 {
-                    stage = APP_STAGE_DONE;
+                    stage = APP_STAGE_ROUTE4;
                 }
             }
             break;
 
+        case APP_STAGE_ROUTE4:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_ms(1500, -1200) != 0U)
+                {
+                    stage = APP_STAGE_ROUTE5;
+                }
+            }
+            break;
+            
+        case APP_STAGE_ROUTE5:
+            if (tb_servo_is_busy() == 0U)            {
+                if (run_route(&route5) != 0U)
+                {                    
+                    stage = APP_STAGE_ROUTE6;
+                }
+            }
+            break;
+
+        case APP_STAGE_ROUTE6:
+            if (tb_servo_is_busy() == 0U)            {
+                if (run_forward_ms(1000, 1200) != 0U)
+                {                    
+                    stage = UNWIND;
+                }
+            }
+            break;
+
+        case UNWIND:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (uart_send("unwind/n") != 0U)
+                {
+                    stage = APP_STAGE_DONE;
+                }
+            }
+            break;
+        
         case APP_STAGE_DONE:
         default:
             route_runner_abort();
