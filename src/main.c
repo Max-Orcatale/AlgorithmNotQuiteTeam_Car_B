@@ -43,8 +43,48 @@ static const Route_t route2 = {
     (u16)(sizeof(route2_steps) / sizeof(route2_steps[0]))
 };
 
+static const RouteStep_t test_route1_steps[] = {
+    {2, TURN_LEFT},
+    {2, TURN_STRAIGHT}
+};
+
+static const RouteStep_t test_route2_steps[] = {
+    {2, TURN_RIGHT},
+    {2, TURN_STRAIGHT}
+};
+
+static const RouteStep_t test_route3_steps[] = {
+    {2, TURN_BACK},
+    {2, TURN_STRAIGHT}
+};
+
+static const Route_t test_route1 = {
+    test_route1_steps,
+    (u16)(sizeof(test_route1_steps) / sizeof(test_route1_steps[0]))
+};
+
+static const Route_t test_route2 = {
+    test_route2_steps,
+    (u16)(sizeof(test_route2_steps) / sizeof(test_route2_steps[0]))
+};
+
+static const Route_t test_route3 = {
+    test_route3_steps,
+    (u16)(sizeof(test_route3_steps) / sizeof(test_route3_steps[0]))
+};
+
+static const Route_t *const g_test_routes[] = {
+    &test_route1,
+    &test_route2,
+    &test_route3
+};
+
 int main(void)
 {
+    u8 last_key_state = 1U;
+    u8 current_key_state;
+    u8 route_index = 0U;
+    const Route_t *active_route = 0;
 
     HAL_Init();         //HAL 库初始化
     tb_rcc_init();      //系统时钟初始化
@@ -64,8 +104,32 @@ int main(void)
 
     while (1)
     {
+        current_key_state = key_read();
+
+
+        if ((last_key_state == 1U) && (current_key_state == 0U) && (active_route == 0))
+        {
+            active_route = g_test_routes[route_index];
+            route_index++;
+            if (route_index >= (u8)(sizeof(g_test_routes) / sizeof(g_test_routes[0])))
+            {
+                route_index = 0U;
+            }
+        }
+
+        last_key_state = current_key_state;
+
+        if (active_route != 0)
+        {
+            if (run_route(active_route) != 0U)
+            {
+                active_route = 0;
+                route_runner_abort();
+            }
+        }
     
-        tb_servo_update();
+    
+        /*tb_servo_update();
 
         switch (stage)
         {
@@ -122,7 +186,7 @@ int main(void)
         default:
             route_runner_abort();
             break;
-        }
+        }*/
     }
 }
 

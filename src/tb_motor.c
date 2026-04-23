@@ -170,6 +170,18 @@ void tb_motor_set_all(int16_t speed1, int16_t speed2, int16_t speed3, int16_t sp
     tb_motor_set_speed(3, speed4);
 }
 
+void tb_motor_spin_left(int16_t speed)
+{
+    speed = motor_clamp_speed(speed);
+    tb_motor_set_all(speed, -speed, speed, -speed);
+}
+
+void tb_motor_spin_right(int16_t speed)
+{
+    speed = motor_clamp_speed(speed);
+    tb_motor_set_all(-speed, speed, -speed, speed);
+}
+
 void tb_motor_stop_all(void)
 {
     tb_motor_set_all(0, 0, 0, 0);
