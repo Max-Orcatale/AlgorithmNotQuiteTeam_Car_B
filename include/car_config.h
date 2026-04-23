@@ -37,10 +37,13 @@
 /* 路线控制参数 */
 #define ROUTE_BLACK_DEBOUNCE_MS 700U
 #define ROUTE_PRETURN_FORWARD_MS 350U
-#define ROUTE_LEFT_TURN_MS      1600U
-#define ROUTE_RIGHT_TURN_MS     1600U
+#define ROUTE_LEFT_TURN_MS      1650U
+#define ROUTE_RIGHT_TURN_MS     1650U
 #define ROUTE_BACK_TURN_MS      3200U
 #define ROUTE_TURN_SPEED        1300
+
+/* 位置微调参数 */
+#define ADJUST_POSITION_SPEED   1200
 
 /* 舵机调度定时器：用 TIM6 */
 #define SERVO_TIMER_PRESCALER (72U - 1U)

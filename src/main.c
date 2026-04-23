@@ -18,31 +18,31 @@ typedef enum
     APP_STAGE_ARM1,
     APP_STAGE_ROUTE2,
     APP_STAGE_ARM2,
+    APP_STAGE_ADJUST,
+    APP_STAGE_ROUTE3,
     APP_STAGE_ARM3,
     APP_STAGE_DONE
 } AppStage_t;
 
+//实际路线
 static const RouteStep_t route1_steps[] = {
     {1, TURN_STRAIGHT}
 };
 
 static const RouteStep_t route2_steps[] = {
     {1, TURN_LEFT},
-    {2, TURN_STRAIGHT},
-    {3, TURN_LEFT},
-    {1, TURN_LEFT}
+    {2, TURN_RIGHT},
+    {2, TURN_LEFT}
 };
 
-static const Route_t route1 = {
-    route1_steps,
-    (u16)(sizeof(route1_steps) / sizeof(route1_steps[0]))
-};
 
 static const Route_t route2 = {
     route2_steps,
     (u16)(sizeof(route2_steps) / sizeof(route2_steps[0]))
 };
 
+
+//测试用路线
 static const RouteStep_t test_route1_steps[] = {
     {2, TURN_LEFT},
     {2, TURN_STRAIGHT}
@@ -104,7 +104,7 @@ int main(void)
 
     while (1)
     {
-        current_key_state = key_read();
+        /*current_key_state = key_read();
 
 
         if ((last_key_state == 1U) && (current_key_state == 0U) && (active_route == 0))
@@ -126,15 +126,15 @@ int main(void)
                 active_route = 0;
                 route_runner_abort();
             }
-        }
+        }*/
     
     
-        /*tb_servo_update();
+        tb_servo_update();
 
         switch (stage)
         {
         case APP_STAGE_ROUTE1:
-            if (run_forward_ms(2000, 1300) != 0U)
+            if (run_forward_ms(1910, 1300) != 0U)
             {
                 stage = APP_STAGE_ARM1;
             }
@@ -167,10 +167,32 @@ int main(void)
             {
                 if (tb_servo_start_action(&direct) != 0U)
                 {
+                    stage = APP_STAGE_ADJUST;
+                }
+            }
+            break;
+
+        case APP_STAGE_ADJUST:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (adjust_position() != 0U)
+                {
+                    stage = APP_STAGE_ROUTE3;
+                }
+            }
+            break;
+
+        case APP_STAGE_ROUTE3:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_ms(1000, 1200) != 0U)
+                {
                     stage = APP_STAGE_ARM3;
                 }
             }
             break;
+
+        
 
         case APP_STAGE_ARM3:
             if (tb_servo_is_busy() == 0U)
@@ -186,7 +208,7 @@ int main(void)
         default:
             route_runner_abort();
             break;
-        }*/
+        }
     }
 }
 

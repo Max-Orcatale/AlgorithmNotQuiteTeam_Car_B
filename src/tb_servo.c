@@ -4,7 +4,7 @@
 #include "tb_gpio.h"
 
 #define SERVO3_LOOSE 1500
-#define SERVO3_TIGHT 1710
+#define SERVO3_TIGHT 1720
 #define SERVO_ACTION_COUNT 3
 
 static TIM_HandleTypeDef htim6;
@@ -16,7 +16,7 @@ static const ArmAction *s_current_action = 0;
 
 static const ArmPose s_pick_poses[] = {
     {{1800, 2400, 1650, SERVO3_LOOSE}, 2000},
-    {{1900, 2420, 1650, SERVO3_TIGHT}, 2000},
+    {{1950, 2400, 1650, SERVO3_TIGHT}, 2000},
     {{1500, 1500, 1650, SERVO3_TIGHT}, 2000}
 };
 
@@ -25,8 +25,8 @@ static const ArmPose s_direct_poses[] = {
 };
 
 static const ArmPose s_place_poses[] = {
-    {{1700, 2100, 1650, SERVO3_LOOSE}, 2000},
-    {{1700, 2100, 1650, SERVO3_TIGHT}, 2000},
+    {{1700, 2100, 1650, SERVO3_LOOSE}, 2000}, //放
+    {{1700, 2150, 1650, SERVO3_TIGHT}, 2000}, //夹
     {{1500, 2100, 1650, SERVO3_TIGHT}, 2000},
     {{1750, 1800, 1650, SERVO3_TIGHT}, 2000},
     {{1790, 1800, 1650, SERVO3_TIGHT}, 2000},

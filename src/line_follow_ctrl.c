@@ -20,6 +20,7 @@ typedef struct
     uint32_t last_black_tick;
     RouteRunnerState_t state;
     TurnAction_t pending_turn;
+    uint8_t finish_after_turn;
     uint32_t preturn_end_tick;
     uint32_t turn_end_tick;
 } RouteRunnerCtrl_t;
@@ -127,6 +128,7 @@ static void route_begin(const Route_t *route)
     s_runner.last_all_black = 0U;
     s_runner.last_black_tick = 0U;
     s_runner.pending_turn = TURN_STRAIGHT;
+    s_runner.finish_after_turn = 0U;
     s_runner.preturn_end_tick = 0U;
     s_runner.turn_end_tick = 0U;
     s_runner.state = ROUTE_RUNNER_FOLLOWING;
@@ -188,6 +190,7 @@ void route_runner_init(void)
     s_runner.last_all_black = 0U;
     s_runner.last_black_tick = 0U;
     s_runner.pending_turn = TURN_STRAIGHT;
+    s_runner.finish_after_turn = 0U;
     s_runner.preturn_end_tick = 0U;
     s_runner.state = ROUTE_RUNNER_IDLE;
     s_runner.turn_end_tick = 0U;
@@ -233,8 +236,14 @@ uint8_t run_route(const Route_t *route)
     {
         if ((int32_t)(now - s_runner.turn_end_tick) >= 0)
         {
-            s_runner.state = ROUTE_RUNNER_FOLLOWING;
             tb_motor_stop_all();
+            if (s_runner.finish_after_turn != 0U)
+            {
+                s_runner.finish_after_turn = 0U;
+                s_runner.state = ROUTE_RUNNER_FINISHED;
+                return 1U;
+            }
+            s_runner.state = ROUTE_RUNNER_FOLLOWING;
         }
         return 0U;
     }
@@ -276,24 +285,27 @@ uint8_t run_route(const Route_t *route)
 
         if (s_runner.cells_in_step >= route->steps[s_runner.current_step].cells)
         {
+            uint8_t finish_after_step;
+
             turn = route->steps[s_runner.current_step].turn;
             s_runner.cells_in_step = 0U;
+            finish_after_step = ((uint16_t)(s_runner.current_step + 1U) >= route->step_count) ? 1U : 0U;
             s_runner.current_step++;
-
-            if (s_runner.current_step >= route->step_count)
-            {
-                s_runner.state = ROUTE_RUNNER_FINISHED;
-                tb_motor_stop_all();
-                return 1U;
-            }
 
             if (turn == TURN_STRAIGHT)
             {
+                if (finish_after_step != 0U)
+                {
+                    s_runner.state = ROUTE_RUNNER_FINISHED;
+                    tb_motor_stop_all();
+                    return 1U;
+                }
                 s_runner.state = ROUTE_RUNNER_FOLLOWING;
             }
             else
             {
                 s_runner.pending_turn = turn;
+                s_runner.finish_after_turn = finish_after_step;
                 s_runner.preturn_end_tick = now + ROUTE_PRETURN_FORWARD_MS;
                 s_runner.state = ROUTE_RUNNER_PRETURN;
             }
@@ -365,6 +377,40 @@ uint8_t run_forward_ms(uint32_t duration_ms, int16_t speed)
     }
 
     tb_motor_set_all(speed, speed, speed, speed);
+    return 0U;
+}
+
+uint8_t adjust_position(void)
+{
+    LineSensorData_t sensor_data;
+
+    if (LineSensor_Read(&sensor_data) != HAL_OK)
+    {
+        tb_motor_stop_all();
+        return 0U;
+    }
+
+    if ((line_sensor_is_black(sensor_data.bit[2]) != 0U) &&
+        (line_sensor_is_black(sensor_data.bit[3]) != 0U) &&
+        (line_sensor_is_black(sensor_data.bit[4]) != 0U))
+    {
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    if (line_sensor_is_black(sensor_data.bit[2]) != 0U)
+    {
+        tb_motor_strafe_left(ADJUST_POSITION_SPEED);
+        return 0U;
+    }
+
+    if (line_sensor_is_black(sensor_data.bit[4]) != 0U)
+    {
+        tb_motor_strafe_right(ADJUST_POSITION_SPEED);
+        return 0U;
+    }
+
+    tb_motor_stop_all();
     return 0U;
 }
 
