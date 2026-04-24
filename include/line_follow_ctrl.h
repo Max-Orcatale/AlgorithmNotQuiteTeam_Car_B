@@ -53,6 +53,8 @@ uint16_t route_runner_get_cells_in_step(void);
 void forward_runner_init(void);
 uint8_t run_forward_ms(uint32_t duration_ms, int16_t speed);
 uint8_t run_forward_while_follow_line(uint32_t duration_ms, int16_t speed);
+uint8_t run_strafe_left_ms(uint32_t duration_ms, int16_t speed);
+uint8_t run_strafe_right_ms(uint32_t duration_ms, int16_t speed);
 void forward_runner_abort(void);
 uint8_t adjust_position(void);
 

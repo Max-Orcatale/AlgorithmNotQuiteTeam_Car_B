@@ -46,6 +46,15 @@ typedef struct
 typedef struct
 {
     uint8_t active;
+    uint8_t direction;
+    uint32_t start_tick;
+    uint32_t duration_ms;
+    int16_t speed;
+} StrafeRunnerCtrl_t;
+
+typedef struct
+{
+    uint8_t active;
     uint32_t start_tick;
     uint32_t duration_ms;
     int16_t speed;
@@ -61,6 +70,7 @@ typedef struct
 static RouteRunnerCtrl_t s_runner;
 static ForwardRunnerCtrl_t s_forward;
 static FollowForwardRunnerCtrl_t s_follow_forward;
+static StrafeRunnerCtrl_t s_strafe;
 static AdjustRunnerCtrl_t s_adjust;
 
 static void follow_forward_apply_tune(LineFollowCtrl_t *ctrl)
@@ -247,6 +257,12 @@ void forward_runner_init(void)
     s_follow_forward.speed = 0;
     LineFollow_Init(&s_follow_forward.follow);
     follow_forward_apply_tune(&s_follow_forward.follow);
+
+    s_strafe.active = 0U;
+    s_strafe.direction = 0U;
+    s_strafe.start_tick = 0U;
+    s_strafe.duration_ms = 0U;
+    s_strafe.speed = 0;
 }
 
 uint8_t run_route(const Route_t *route)
@@ -472,6 +488,59 @@ uint8_t run_forward_while_follow_line(uint32_t duration_ms, int16_t speed)
     return 0U;
 }
 
+static uint8_t run_strafe_ms(uint32_t duration_ms, int16_t speed, uint8_t direction)
+{
+    uint32_t now;
+
+    if (duration_ms == 0U)
+    {
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    now = HAL_GetTick();
+
+    if ((s_strafe.active == 0U) ||
+        (s_strafe.duration_ms != duration_ms) ||
+        (s_strafe.speed != speed) ||
+        (s_strafe.direction != direction))
+    {
+        s_strafe.active = 1U;
+        s_strafe.direction = direction;
+        s_strafe.start_tick = now;
+        s_strafe.duration_ms = duration_ms;
+        s_strafe.speed = speed;
+    }
+
+    if ((now - s_strafe.start_tick) >= s_strafe.duration_ms)
+    {
+        tb_motor_stop_all();
+        s_strafe.active = 0U;
+        return 1U;
+    }
+
+    if (direction == 0U)
+    {
+        tb_motor_strafe_left(speed);
+    }
+    else
+    {
+        tb_motor_strafe_right(speed);
+    }
+
+    return 0U;
+}
+
+uint8_t run_strafe_left_ms(uint32_t duration_ms, int16_t speed)
+{
+    return run_strafe_ms(duration_ms, speed, 0U);
+}
+
+uint8_t run_strafe_right_ms(uint32_t duration_ms, int16_t speed)
+{
+    return run_strafe_ms(duration_ms, speed, 1U);
+}
+
 uint8_t adjust_position(void)
 {
     LineSensorData_t sensor_data;
@@ -545,5 +614,11 @@ void forward_runner_abort(void)
     s_follow_forward.start_tick = 0U;
     s_follow_forward.duration_ms = 0U;
     s_follow_forward.speed = 0;
+
+    s_strafe.active = 0U;
+    s_strafe.direction = 0U;
+    s_strafe.start_tick = 0U;
+    s_strafe.duration_ms = 0U;
+    s_strafe.speed = 0;
     tb_motor_stop_all();
 }

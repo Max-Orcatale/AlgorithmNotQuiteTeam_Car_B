@@ -14,7 +14,7 @@
 /*状态机*/
 typedef enum
 {
-    WIND = 0,
+    UNWIND = 0,
     APP_STAGE_ROUTE1,
     APP_STAGE_ARM1,
     APP_STAGE_ROUTE2,
@@ -24,7 +24,8 @@ typedef enum
     APP_STAGE_ROUTE4,
     APP_STAGE_ROUTE5,
     APP_STAGE_ROUTE6,
-    UNWIND,
+    APP_STAGE_ROUTE7,
+    WIND,
     APP_STAGE_DONE
 } AppStage_t;
 
@@ -39,7 +40,7 @@ static const RouteStep_t route2_steps[] = {
 static const RouteStep_t route5_steps[] = {
     {1, TURN_RIGHT},
     {1, TURN_LEFT},
-    {1, TURN_STRAIGHT}
+    {1, TURN_LEFT}
 };
 
 
@@ -50,7 +51,7 @@ static const Route_t route2 = {
     (u16)(sizeof(route2_steps) / sizeof(route2_steps[0]))
 };
 
-static const Route_t route5 = {
+static const Route_t route6 = {
     route5_steps,
     (u16)(sizeof(route5_steps) / sizeof(route5_steps[0]))
 };
@@ -113,7 +114,7 @@ int main(void)
     tb_servo_demo_init(); // 机械臂状态初始化
     usart3_init();      // USART3 初始化
 
-    AppStage_t stage = WIND;
+    AppStage_t stage = UNWIND;
 
 
     while (1)
@@ -143,19 +144,19 @@ int main(void)
         }*/
     
     
-        tb_servo_update();
+        tb_servo_update(); // 主循环持续推进机械臂动作
 
         switch (stage)
         {
-        case WIND:
-            if (uart_send("wind/n") != 0U)
+        case UNWIND:
+            if (uart_send("unwind\n") != 0U) // 一次性串口发送
             {
                 stage = APP_STAGE_ROUTE1;
             }
             break;
         
         case APP_STAGE_ROUTE1:
-            if (run_forward_while_follow_line(1890, 1300) != 0U)
+            if (run_forward_ms(1820, 1300) != 0U) // 定时寻线前进
             {
                 stage = APP_STAGE_ARM1;
             }
@@ -175,7 +176,7 @@ int main(void)
         case APP_STAGE_ROUTE2:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_route(&route2) != 0U)
+                if (run_route(&route2) != 0U) // 走格子路线状态机
                 {
                     stage = APP_STAGE_ARM2;
                 }
@@ -196,7 +197,17 @@ int main(void)
         case APP_STAGE_ROUTE3:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_while_follow_line(1500, 1200) != 0U)
+                if (run_forward_ms(1500, -1200) != 0U) // 定时寻线前进
+                {
+                    stage = APP_STAGE_ROUTE4;
+                }
+            }
+            break;
+
+        case APP_STAGE_ROUTE4:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_while_follow_line(2700, 1200) != 0U) // 定时直行/倒退
                 {
                     stage = APP_STAGE_ARM3;
                 }
@@ -210,43 +221,43 @@ int main(void)
             {
                 if (tb_servo_start_action(&place) != 0U)
                 {
-                    stage = APP_STAGE_ROUTE4;
-                }
-            }
-            break;
-
-        case APP_STAGE_ROUTE4:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_forward_ms(1500, -1200) != 0U)
-                {
                     stage = APP_STAGE_ROUTE5;
                 }
             }
             break;
-            
+
         case APP_STAGE_ROUTE5:
-            if (tb_servo_is_busy() == 0U)            {
-                if (run_route(&route5) != 0U)
-                {                    
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_ms(2000, -1200) != 0U) // 定时寻线前进
+                {
                     stage = APP_STAGE_ROUTE6;
                 }
             }
             break;
-
+            
         case APP_STAGE_ROUTE6:
             if (tb_servo_is_busy() == 0U)            {
-                if (run_forward_ms(1000, 1200) != 0U)
+                if (run_route(&route6) != 0U) // 走格子路线状态机
                 {                    
-                    stage = UNWIND;
+                    stage = APP_STAGE_ROUTE7;
                 }
             }
             break;
 
-        case UNWIND:
+        case APP_STAGE_ROUTE7:
+            if (tb_servo_is_busy() == 0U)            {
+                if (run_strafe_right_ms(2000, 1200) != 0U) // 定时右平移
+                {                    
+                    stage = WIND;
+                }
+            }
+            break;
+
+        case WIND:
             if (tb_servo_is_busy() == 0U)
             {
-                if (uart_send("unwind/n") != 0U)
+                if (uart_send("wind\n") != 0U) // 一次性串口发送
                 {
                     stage = APP_STAGE_DONE;
                 }

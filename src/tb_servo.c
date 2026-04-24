@@ -29,7 +29,7 @@ static const ArmPose s_place_poses[] = {
     {{1720, 2150, 1650, SERVO3_TIGHT}, 2000}, //夹
     {{1500, 2100, 1650, SERVO3_TIGHT}, 2000},
     {{1750, 1800, 1650, SERVO3_TIGHT}, 2000},
-    {{1790, 1800, 1650, SERVO3_TIGHT}, 2000},
+    {{1810, 1800, 1650, SERVO3_TIGHT}, 2000},
     {{1600, 2100, 1650, SERVO3_LOOSE}, 2000}
 };
 
