@@ -40,6 +40,13 @@ typedef struct
     uint8_t active;
     uint32_t start_tick;
     uint32_t duration_ms;
+} WaitRunnerCtrl_t;
+
+typedef struct
+{
+    uint8_t active;
+    uint32_t start_tick;
+    uint32_t duration_ms;
     int16_t speed;
 } ForwardRunnerCtrl_t;
 
@@ -68,6 +75,7 @@ typedef struct
 } AdjustRunnerCtrl_t;
 
 static RouteRunnerCtrl_t s_runner;
+static WaitRunnerCtrl_t s_wait;
 static ForwardRunnerCtrl_t s_forward;
 static FollowForwardRunnerCtrl_t s_follow_forward;
 static StrafeRunnerCtrl_t s_strafe;
@@ -246,6 +254,10 @@ void route_runner_init(void)
 
 void forward_runner_init(void)
 {
+    s_wait.active = 0U;
+    s_wait.start_tick = 0U;
+    s_wait.duration_ms = 0U;
+
     s_forward.active = 0U;
     s_forward.start_tick = 0U;
     s_forward.duration_ms = 0U;
@@ -263,6 +275,38 @@ void forward_runner_init(void)
     s_strafe.start_tick = 0U;
     s_strafe.duration_ms = 0U;
     s_strafe.speed = 0;
+}
+
+uint8_t wait_ms(uint32_t duration_ms)
+{
+    uint32_t now;
+
+    if (duration_ms == 0U)
+    {
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    now = HAL_GetTick();
+
+    if ((s_wait.active == 0U) || (s_wait.duration_ms != duration_ms))
+    {
+        s_wait.active = 1U;
+        s_wait.start_tick = now;
+        s_wait.duration_ms = duration_ms;
+        tb_motor_stop_all();
+        return 0U;
+    }
+
+    if ((now - s_wait.start_tick) >= s_wait.duration_ms)
+    {
+        s_wait.active = 0U;
+        tb_motor_stop_all();
+        return 1U;
+    }
+
+    tb_motor_stop_all();
+    return 0U;
 }
 
 uint8_t run_route(const Route_t *route)
@@ -605,6 +649,10 @@ uint8_t adjust_position(void)
 
 void forward_runner_abort(void)
 {
+    s_wait.active = 0U;
+    s_wait.start_tick = 0U;
+    s_wait.duration_ms = 0U;
+
     s_forward.active = 0U;
     s_forward.start_tick = 0U;
     s_forward.duration_ms = 0U;

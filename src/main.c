@@ -14,7 +14,8 @@
 /*状态机*/
 typedef enum
 {
-    UNWIND = 0,
+    DELAY =0,
+    UNWIND,
     APP_STAGE_ROUTE1,
     APP_STAGE_ARM1,
     APP_STAGE_ROUTE2,
@@ -109,12 +110,13 @@ int main(void)
     tb_motor_init();    // 电机PWM初始化
     tb_encoder_init();  // 电机编码器初始化
     route_runner_init(); // 走格子/路线状态机初始化
+    forward_runner_init(); // 定时运动/等待状态机初始化
     dj_io_init();       //舵机相关GPIO初始化
     tb_servo_init();    // 舵机调度定时器初始化
     tb_servo_demo_init(); // 机械臂状态初始化
     usart3_init();      // USART3 初始化
 
-    AppStage_t stage = UNWIND;
+    AppStage_t stage = DELAY;
 
 
     while (1)
@@ -148,6 +150,13 @@ int main(void)
 
         switch (stage)
         {
+        case DELAY:
+            if (wait_ms(3000) != 0U) // 一次性串口发送
+            {
+                stage = UNWIND;
+            }
+            break;
+        
         case UNWIND:
             if (uart_send("unwind\n") != 0U) // 一次性串口发送
             {
@@ -156,7 +165,7 @@ int main(void)
             break;
         
         case APP_STAGE_ROUTE1:
-            if (run_forward_ms(1820, 1300) != 0U) // 定时寻线前进
+            if (run_forward_ms(1890, 1300) != 0U) // 定时寻线前进
             {
                 stage = APP_STAGE_ARM1;
             }
@@ -189,25 +198,16 @@ int main(void)
             {
                 if (tb_servo_start_action(&direct) != 0U)
                 {
-                    stage = APP_STAGE_ROUTE3;
-                }
-            }
-            break;
-
-        case APP_STAGE_ROUTE3:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_forward_ms(1500, -1200) != 0U) // 定时寻线前进
-                {
                     stage = APP_STAGE_ROUTE4;
                 }
             }
             break;
 
+
         case APP_STAGE_ROUTE4:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_while_follow_line(2700, 1200) != 0U) // 定时直行/倒退
+                if (run_forward_ms(1200, 1200) != 0U) // 定时直行/倒退
                 {
                     stage = APP_STAGE_ARM3;
                 }
@@ -247,7 +247,7 @@ int main(void)
 
         case APP_STAGE_ROUTE7:
             if (tb_servo_is_busy() == 0U)            {
-                if (run_strafe_right_ms(2000, 1200) != 0U) // 定时右平移
+                if (run_strafe_right_ms(2000, 1500) != 0U) // 定时右平移
                 {                    
                     stage = WIND;
                 }
