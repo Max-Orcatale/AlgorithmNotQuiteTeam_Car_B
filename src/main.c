@@ -33,15 +33,15 @@ typedef enum
 //实际路线
 
 static const RouteStep_t route2_steps[] = {
-    {1, TURN_LEFT},
-    {2, TURN_RIGHT},
-    {2, TURN_LEFT}
+    {1, TURN_RIGHT},
+    {2, TURN_LEFT},
+    {2, TURN_RIGHT}
 };
 
 static const RouteStep_t route5_steps[] = {
-    {1, TURN_RIGHT},
     {1, TURN_LEFT},
-    {1, TURN_LEFT}
+    {1, TURN_RIGHT},
+    {1, TURN_RIGHT}
 };
 
 
@@ -247,7 +247,7 @@ int main(void)
 
         case APP_STAGE_ROUTE7:
             if (tb_servo_is_busy() == 0U)            {
-                if (run_strafe_right_ms(2000, 1500) != 0U) // 定时右平移
+                if (run_strafe_left_ms(2000, 1500) != 0U) // 定时左平移
                 {                    
                     stage = WIND;
                 }
