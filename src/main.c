@@ -252,7 +252,7 @@ int main(void)
         case APP_STAGE_ROUTE2:
             if (tb_servo_is_busy() == 0U)            
             {
-                if (run_route(&route2) != 0U) // 走格子路线状态机
+                if (run_route(&route2) != 0U) 
                 {                    
                     stage = APP_STAGE_MARCH4;
                 }
@@ -262,7 +262,7 @@ int main(void)
         case APP_STAGE_MARCH4:
             if (tb_servo_is_busy() == 0U)           
             {
-                if (run_strafe_left_ms(APPROACH_RING_MS, APPROACH_RING_SPEED) != 0U) // 定时左平移
+                if (run_forward_ms(APPROACH_RING_MS, APPROACH_RING_SPEED) != 0U) // 定时左平移
                 {                    
                     stage = APP_STAGE_ARM4;
                 }
