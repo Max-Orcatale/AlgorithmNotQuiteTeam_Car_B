@@ -7,6 +7,7 @@
 extern const ArmAction pick;
 extern const ArmAction direct;
 extern const ArmAction place;
+extern const ArmAction place2;
 
 void tb_servo_init(void);
 void duoji_inc_handle(u8 index);

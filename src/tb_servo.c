@@ -29,14 +29,22 @@ static const ArmPose s_place_poses[] = {
     {{1720, 2150, 1650, SERVO3_TIGHT}, 2000}, //夹
     {{1500, 2100, 1650, SERVO3_TIGHT}, 2000},
     {{1750, 1800, 1650, SERVO3_TIGHT}, 2000},
-    {{1810, 1800, 1650, SERVO3_TIGHT}, 2000},
-    {{1600, 2100, 1650, SERVO3_LOOSE}, 2000}
+    {{1775, 1780, 1650, SERVO3_TIGHT}, 500},
+    {{1850, 1650, 1650, SERVO3_TIGHT}, 2000},
+    {{1810, 1800, 1650, SERVO3_LOOSE}, 500},
+    {{1600, 2100, 1650, SERVO3_LOOSE}, 1500}
+};
+
+static const ArmPose s_place2_poses[] = {
+    {{1700, 2100, 1650, SERVO3_LOOSE}, 2000}, //放
+    {{1810, 1800, 1650, SERVO3_LOOSE}, 500},
+    {{1600, 2100, 1650, SERVO3_LOOSE}, 1500}
 };
 
 const ArmAction pick = {s_pick_poses, (u8)(sizeof(s_pick_poses) / sizeof(s_pick_poses[0]))};
 const ArmAction direct = {s_direct_poses, (u8)(sizeof(s_direct_poses) / sizeof(s_direct_poses[0]))};
 const ArmAction place = {s_place_poses, (u8)(sizeof(s_place_poses) / sizeof(s_place_poses[0]))};
-
+const ArmAction place2 = {s_place2_poses, (u8)(sizeof(s_place2_poses) / sizeof(s_place2_poses[0]))};
 
 
 static void do_pose(const ArmPose *pose);

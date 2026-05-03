@@ -15,7 +15,6 @@
 typedef enum
 {
     DELAY =0,
-    UNWIND,
     APP_STAGE_MARCH1,  //出初始区域
     APP_STAGE_ARM1,    //捡起满仓环
     APP_STAGE_ROUTE1,  //寻线至柱前
@@ -134,6 +133,19 @@ int main(void)
 
     while (1)
     {
+    /*   if (usart3_read_line(rx_buf, (u16)sizeof(rx_buf)) != 0U)
+        {
+            if (usart3_parse_pulses(rx_buf, &uart_pose) != 0U)
+            {
+                servo_apply_pose(&uart_pose);
+                usart3_send_string("ok\r\n");
+            }
+            else
+            {
+                usart3_send_string("format error\r\n");
+            }
+        }*/
+
         /*current_key_state = key_read();
 
 
@@ -157,25 +169,21 @@ int main(void)
                 route_runner_abort();
             }
         }*/
-    
-    
-        tb_servo_update(); // 主循环持续推进机械臂动作
+        if (stage != DELAY)
+        {
+            tb_servo_update(); // 主循环持续推进机械臂动作
+        }
 
         switch (stage)
         {
         case DELAY:
+            uart_send("unwind 50\n");
             if (wait_ms(7000) != 0U) 
-            {
-                stage = UNWIND;
-            }
-            break;
-        
-        case UNWIND:
-            if (uart_send("unwind\n") != 0U) // 一次性串口发送
             {
                 stage = APP_STAGE_MARCH1;
             }
             break;
+        
         
         case APP_STAGE_MARCH1:
             if (run_forward_ms(EXIT_INITAIL_ZONE_MS, EXIT_INITIAL_ZONE_SPEED) != 0U) // 定时前进
@@ -312,7 +320,7 @@ int main(void)
         case APP_STAGE_ARM6:
             if (tb_servo_is_busy() == 0U)
             {
-                if (tb_servo_start_action(&place) != 0U)
+                if (tb_servo_start_action(&place2) != 0U)
                 {
                     stage = APP_STAGE_MARCH6;
                 }
@@ -343,7 +351,7 @@ int main(void)
         case WIND:
             if (tb_servo_is_busy() == 0U)
             {
-                if (uart_send("wind\n") != 0U) // 一次性串口发送
+                if (uart_send("wind 50\n") != 0U) // 一次性串口发送
                 {
                     stage = APP_STAGE_DONE;
                 }
