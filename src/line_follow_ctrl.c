@@ -31,7 +31,9 @@ typedef struct
     RouteRunnerState_t state;
     TurnAction_t pending_turn;
     uint8_t finish_after_turn;
+    uint8_t turn_line_lost;
     uint32_t preturn_end_tick;
+    uint32_t turn_start_tick;
     uint32_t turn_end_tick;
 } RouteRunnerCtrl_t;
 
@@ -140,31 +142,62 @@ static uint8_t route_is_all_black(const LineSensorData_t *data)
     return 0U;
 }
 
+static uint8_t route_turn_stop_line_seen(const LineSensorData_t *data)
+{
+    if (data == 0)
+    {
+        return 0U;
+    }
+
+    if ((line_sensor_is_black(data->bit[3]) != 0U) &&
+        (line_sensor_is_black(data->bit[4]) != 0U))
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+static uint8_t route_finish_turn(void)
+{
+    tb_motor_stop_all();
+
+    if (s_runner.finish_after_turn != 0U)
+    {
+        s_runner.finish_after_turn = 0U;
+        s_runner.state = ROUTE_RUNNER_FINISHED;
+        return 1U;
+    }
+
+    s_runner.state = ROUTE_RUNNER_FOLLOWING;
+    return 0U;
+}
+
 static void route_start_turn(TurnAction_t turn)
 {
-    uint32_t now = HAL_GetTick();
     int16_t turn_speed = route_get_turn_speed();
+
+    s_runner.turn_line_lost = 0U;
+    s_runner.turn_start_tick = HAL_GetTick();
+    s_runner.turn_end_tick = 0U;
 
     switch (turn)
     {
     case TURN_LEFT:
         tb_motor_stop_all();
         tb_motor_spin_left(turn_speed);
-        s_runner.turn_end_tick = now + ROUTE_LEFT_TURN_MS;
         s_runner.state = ROUTE_RUNNER_TURNING;
         break;
 
     case TURN_RIGHT:
         tb_motor_stop_all();
         tb_motor_spin_right(turn_speed);
-        s_runner.turn_end_tick = now + ROUTE_RIGHT_TURN_MS;
         s_runner.state = ROUTE_RUNNER_TURNING;
         break;
 
     case TURN_BACK:
         tb_motor_stop_all();
         tb_motor_spin_right(turn_speed);
-        s_runner.turn_end_tick = now + ROUTE_BACK_TURN_MS;
         s_runner.state = ROUTE_RUNNER_TURNING;
         break;
 
@@ -185,7 +218,9 @@ static void route_begin(const Route_t *route)
     s_runner.last_black_tick = 0U;
     s_runner.pending_turn = TURN_STRAIGHT;
     s_runner.finish_after_turn = 0U;
+    s_runner.turn_line_lost = 0U;
     s_runner.preturn_end_tick = 0U;
+    s_runner.turn_start_tick = 0U;
     s_runner.turn_end_tick = 0U;
     s_runner.state = ROUTE_RUNNER_FOLLOWING;
 }
@@ -247,8 +282,10 @@ void route_runner_init(void)
     s_runner.last_black_tick = 0U;
     s_runner.pending_turn = TURN_STRAIGHT;
     s_runner.finish_after_turn = 0U;
+    s_runner.turn_line_lost = 0U;
     s_runner.preturn_end_tick = 0U;
     s_runner.state = ROUTE_RUNNER_IDLE;
+    s_runner.turn_start_tick = 0U;
     s_runner.turn_end_tick = 0U;
 }
 
@@ -339,16 +376,14 @@ uint8_t run_route(const Route_t *route)
 
     if (s_runner.state == ROUTE_RUNNER_TURNING)
     {
-        if ((int32_t)(now - s_runner.turn_end_tick) >= 0)
+        if (route_turn_stop_line_seen(&sensor_data) == 0U)
         {
-            tb_motor_stop_all();
-            if (s_runner.finish_after_turn != 0U)
-            {
-                s_runner.finish_after_turn = 0U;
-                s_runner.state = ROUTE_RUNNER_FINISHED;
-                return 1U;
-            }
-            s_runner.state = ROUTE_RUNNER_FOLLOWING;
+            s_runner.turn_line_lost = 1U;
+        }
+        else if ((s_runner.turn_line_lost != 0U) &&
+                 ((now - s_runner.turn_start_tick) >= ROUTE_TURN_MIN_MS))
+        {
+            return route_finish_turn();
         }
         return 0U;
     }
@@ -429,7 +464,9 @@ void route_runner_abort(void)
     s_runner.last_all_black = 0U;
     s_runner.last_black_tick = 0U;
     s_runner.pending_turn = TURN_STRAIGHT;
+    s_runner.turn_line_lost = 0U;
     s_runner.preturn_end_tick = 0U;
+    s_runner.turn_start_tick = 0U;
     s_runner.turn_end_tick = 0U;
     s_runner.state = ROUTE_RUNNER_IDLE;
     tb_motor_stop_all();

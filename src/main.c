@@ -220,7 +220,7 @@ int main(void)
         case APP_STAGE_MARCH2:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_ms(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时直行/倒退
+                if (run_forward_while_follow_line(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时直行/倒退
                 {
                     stage = APP_STAGE_ARM3;
                 }
@@ -242,7 +242,7 @@ int main(void)
         case APP_STAGE_MARCH3:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_ms(BACKWARD_MS, BACKWARD_SPEED) != 0U) // 定时寻线前进
+                if (run_forward_while_follow_line(BACKWARD_MS, BACKWARD_SPEED) != 0U) // 定时寻线前进
                 {
                     stage = APP_STAGE_ROUTE2;
                 }
@@ -262,7 +262,7 @@ int main(void)
         case APP_STAGE_MARCH4:
             if (tb_servo_is_busy() == 0U)           
             {
-                if (run_forward_ms(APPROACH_RING_MS, APPROACH_RING_SPEED) != 0U) // 定时左平移
+                if (run_forward_while_follow_line(APPROACH_RING_MS, APPROACH_RING_SPEED) != 0U) // 定时左平移
                 {                    
                     stage = APP_STAGE_ARM4;
                 }
@@ -302,7 +302,7 @@ int main(void)
         case APP_STAGE_MARCH5:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_ms(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时前进
+                if (run_forward_while_follow_line(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时前进
                 {
                     stage = APP_STAGE_ARM6;
                 }
@@ -323,7 +323,7 @@ int main(void)
         case APP_STAGE_MARCH6:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_strafe_left_ms(1200, 1200) != 0U) 
+                if (run_strafe_left_ms(1800, 1300) != 0U) 
                 {
                     stage = APP_STAGE_MARCH7;
                 }
@@ -333,7 +333,7 @@ int main(void)
         case APP_STAGE_MARCH7:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_ms(1200, 1200) != 0U) 
+                if (run_forward_ms(1800, 1300) != 0U) 
                 {
                     stage = WIND;
                 }
