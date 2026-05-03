@@ -39,5 +39,8 @@ void dj_io_set(u8 index, u8 level);
 /* 读取按键状态，返回 0 表示按下，1 表示未按下 */
 u8 key_read(void);
 
+/* 简单去抖后的按下事件，返回 1 表示检测到一次稳定按下 */
+u8 key_pressed_event(void);
+
 
 #endif

@@ -1,6 +1,12 @@
 /* src/tb_gpio.c */
 #include "tb_gpio.h"
 
+#define KEY_DEBOUNCE_MS 20U
+
+static u8 s_key_last_raw_state = 1U;
+static u8 s_key_stable_state = 1U;
+static uint32_t s_key_change_tick = 0U;
+
 void tb_gpio_init(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -28,6 +34,10 @@ void tb_gpio_init(void)
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     HAL_GPIO_WritePin(LINE_SDA_GPIO_PORT, LINE_SDA_PIN, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LINE_SCL_GPIO_PORT, LINE_SCL_PIN, GPIO_PIN_SET);
+
+    s_key_last_raw_state = key_read();
+    s_key_stable_state = s_key_last_raw_state;
+    s_key_change_tick = HAL_GetTick();
 }
 
 void dj_io_init(void)
@@ -69,4 +79,28 @@ u8 key_read(void)
 {
     /* 按键按下为低电平，这里统一转换成 0=按下, 1=未按下 */
     return (HAL_GPIO_ReadPin(KEY_GPIO_PORT, KEY_GPIO_PIN) == GPIO_PIN_RESET) ? 0 : 1;
+}
+
+u8 key_pressed_event(void)
+{
+    u8 raw_state = key_read();
+    uint32_t now = HAL_GetTick();
+
+    if (raw_state != s_key_last_raw_state)
+    {
+        s_key_last_raw_state = raw_state;
+        s_key_change_tick = now;
+    }
+
+    if (((now - s_key_change_tick) >= KEY_DEBOUNCE_MS) &&
+        (s_key_stable_state != s_key_last_raw_state))
+    {
+        s_key_stable_state = s_key_last_raw_state;
+        if (s_key_stable_state == 0U)
+        {
+            return 1U;
+        }
+    }
+
+    return 0U;
 }

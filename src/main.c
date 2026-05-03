@@ -35,6 +35,13 @@ typedef enum
     APP_STAGE_DONE
 } AppStage_t;
 
+typedef enum
+{
+    BOOT_WAIT_FIRST_PRESS = 0,
+    BOOT_WAIT_SECOND_PRESS,
+    BOOT_RUNNING
+} BootState_t;
+
 //实际路线
 
 static const RouteStep_t route1_steps[] = {
@@ -109,10 +116,7 @@ static const Route_t *const g_test_routes[] = {
 
 int main(void)
 {
-    u8 last_key_state = 1U;
-    u8 current_key_state;
-    u8 route_index = 0U;
-    const Route_t *active_route = 0;
+    BootState_t boot_state = BOOT_WAIT_FIRST_PRESS;
 
     HAL_Init();         //HAL 库初始化
     tb_rcc_init();      //系统时钟初始化
@@ -133,6 +137,29 @@ int main(void)
 
     while (1)
     {
+        if (key_pressed_event() != 0U)
+        {
+            if (boot_state == BOOT_WAIT_FIRST_PRESS)
+            {
+                usart3_send_string("wind 50\n");
+                boot_state = BOOT_WAIT_SECOND_PRESS;
+            }
+            else if (boot_state == BOOT_WAIT_SECOND_PRESS)
+            {
+                boot_state = BOOT_RUNNING;
+                stage = DELAY;
+                forward_runner_abort();
+                route_runner_abort();
+                uart_send_reset();
+            }
+        }
+
+        if (boot_state != BOOT_RUNNING)
+        {
+            tb_motor_stop_all();
+            continue;
+        }
+
     /*   if (usart3_read_line(rx_buf, (u16)sizeof(rx_buf)) != 0U)
         {
             if (usart3_parse_pulses(rx_buf, &uart_pose) != 0U)
@@ -177,7 +204,6 @@ int main(void)
         switch (stage)
         {
         case DELAY:
-            uart_send("unwind 50\n");
             if (wait_ms(7000) != 0U) 
             {
                 stage = APP_STAGE_MARCH1;
