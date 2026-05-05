@@ -9,6 +9,10 @@ extern const ArmAction direct;
 extern const ArmAction place;
 extern const ArmAction place2;
 
+extern const ArmAction stole_direct;
+extern const ArmAction stole;
+extern const ArmAction stole_place;
+
 void tb_servo_init(void);
 void duoji_inc_handle(u8 index);
 void pwmServo_angle_set(u8 index, int aim, int time);
@@ -18,5 +22,6 @@ void tb_servo_demo_update(void);
 u8 tb_servo_start_action(const ArmAction *action);
 void tb_servo_update(void);
 u8 tb_servo_is_busy(void);
+void servo_apply_pose(const ArmPose *pose);
 
 #endif

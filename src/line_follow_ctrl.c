@@ -11,7 +11,7 @@ typedef struct
 } FollowTune_t;
 
 static const FollowTune_t s_follow_forward_tunes[] = {
-    {20, 50}
+    {30, 50}
 };
 
 /* 当前巡线模块恢复为：1 表示检测到黑线，0 表示白底。 */
@@ -255,10 +255,10 @@ void LineFollow_Update(LineFollowCtrl_t *ctrl, const LineSensorData_t *data)
     error = line_follow_compute_error(data, &valid);
     if (valid == 0U)
     {
-        tb_motor_set_all(-FOLLOW_LOST_LINE_BRAKE_SPEED,
-                         -FOLLOW_LOST_LINE_BRAKE_SPEED,
-                         -FOLLOW_LOST_LINE_BRAKE_SPEED,
-                         -FOLLOW_LOST_LINE_BRAKE_SPEED);
+        tb_motor_set_all(FOLLOW_LOST_LINE_BRAKE_SPEED,
+                         FOLLOW_LOST_LINE_BRAKE_SPEED,
+                         FOLLOW_LOST_LINE_BRAKE_SPEED,
+                         FOLLOW_LOST_LINE_BRAKE_SPEED);
         return;
     }
 

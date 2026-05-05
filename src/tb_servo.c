@@ -3,8 +3,10 @@
 #include "tb_global.h"
 #include "tb_gpio.h"
 
-#define SERVO3_LOOSE 1500
-#define SERVO3_TIGHT 1720
+#define SERVO3_OPEN 1650
+#define SERVO3_OPEN_TIGHT 1840
+#define SERVO3_LOOSE 1700
+#define SERVO3_TIGHT 2080
 #define SERVO_ACTION_COUNT 3
 
 static TIM_HandleTypeDef htim6;
@@ -30,22 +32,37 @@ static const ArmPose s_place_poses[] = {
     {{1500, 2100, 1650, SERVO3_TIGHT}, 2000},
     {{1750, 1800, 1650, SERVO3_TIGHT}, 2000},
     {{1775, 1780, 1650, SERVO3_TIGHT}, 500},
-    {{1850, 1650, 1650, SERVO3_TIGHT}, 2000},
+    {{1850, 1700, 1650, SERVO3_TIGHT}, 2000},
     {{1810, 1800, 1650, SERVO3_LOOSE}, 500},
     {{1600, 2100, 1650, SERVO3_LOOSE}, 1500}
 };
 
 static const ArmPose s_place2_poses[] = {
     {{1700, 2100, 1650, SERVO3_LOOSE}, 2000}, //放
-    {{1810, 1800, 1650, SERVO3_LOOSE}, 500},
-    {{1600, 2100, 1650, SERVO3_LOOSE}, 1500}
+    {{1810, 2300, 1650, SERVO3_LOOSE}, 500},
+    {{1700, 2300, 1650, SERVO3_LOOSE}, 1500}
+};
+
+static const ArmPose s_stole_direct_poses[] = {
+    {{2130, 1457, 1000, SERVO3_OPEN}, 1000}
+};
+
+static const ArmPose s_stole_poses[] = {
+    {{2130, 1457, 1000, SERVO3_OPEN_TIGHT}, 1000},
+    {{1800, 1650, 1000, SERVO3_OPEN_TIGHT}, 2000}
+};
+
+static const ArmPose s_stole_place_poses[] = {
+    {{1600, 2500, 1000, SERVO3_OPEN_TIGHT}, 2000}
 };
 
 const ArmAction pick = {s_pick_poses, (u8)(sizeof(s_pick_poses) / sizeof(s_pick_poses[0]))};
 const ArmAction direct = {s_direct_poses, (u8)(sizeof(s_direct_poses) / sizeof(s_direct_poses[0]))};
 const ArmAction place = {s_place_poses, (u8)(sizeof(s_place_poses) / sizeof(s_place_poses[0]))};
 const ArmAction place2 = {s_place2_poses, (u8)(sizeof(s_place2_poses) / sizeof(s_place2_poses[0]))};
-
+const ArmAction stole_direct = {s_stole_direct_poses, (u8)(sizeof(s_stole_direct_poses) / sizeof(s_stole_direct_poses[0]))};
+const ArmAction stole = {s_stole_poses, (u8)(sizeof(s_stole_poses) / sizeof(s_stole_poses[0]))};
+const ArmAction stole_place = {s_stole_place_poses, (u8)(sizeof(s_stole_place_poses) / sizeof(s_stole_place_poses[0]))};
 
 static void do_pose(const ArmPose *pose);
 static u8 check_dj_state(void);
@@ -216,6 +233,11 @@ void tb_servo_update(void)
 u8 tb_servo_is_busy(void)
 {
     return hand_busy;
+}
+
+void servo_apply_pose(const ArmPose *pose)
+{
+    do_pose(pose);
 }
 
 static u8 check_dj_state(void)

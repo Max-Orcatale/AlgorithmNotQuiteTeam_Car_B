@@ -12,111 +12,120 @@
 #include "tb_uart.h"
 
 /*状态机*/
-typedef enum
-{
-    DELAY =0,
-    APP_STAGE_MARCH1,  //出初始区域
-    APP_STAGE_ARM1,    //捡起满仓环
-    APP_STAGE_ROUTE1,  //寻线至柱前
-    APP_STAGE_ARM2,    //准备架势
-    APP_STAGE_MARCH2,  //靠近柱
-    APP_STAGE_ARM3,    //将环放入柱中
-    APP_STAGE_MARCH3,  //后退
-    APP_STAGE_ROUTE2,  //寻线至环前
-    APP_STAGE_MARCH4,  //靠近环
-    APP_STAGE_ARM4,    //捡起环
-    APP_STAGE_ROUTE3,  //巡线至柱前
-    APP_STAGE_ARM5,    //准备架势
-    APP_STAGE_MARCH5,  //靠近柱
-    APP_STAGE_ARM6,    //将环放入柱中
-    APP_STAGE_MARCH6,  //前进
-    APP_STAGE_MARCH7,  //平移
-    WIND,
-    APP_STAGE_DONE
-} AppStage_t;
+
 
 typedef enum
 {
-    BOOT_WAIT_FIRST_PRESS = 0,
-    BOOT_WAIT_SECOND_PRESS,
+    BOOT_SELECTING = 0,
     BOOT_RUNNING
 } BootState_t;
 
+typedef enum
+{
+    APP_MODE_0 = 0,
+    APP_MODE_1,
+    APP_MODE_DEBUG
+} AppMode_t;
+
+typedef enum
+{
+    MODE0_STAGE_MARCH1=0,  //出初始区域
+    MODE0_STAGE_ARM1,    //捡起满仓环
+    MODE0_STAGE_ROUTE1,  //寻线至柱前
+    MODE0_STAGE_ARM2,    //准备架势
+    MODE0_STAGE_MARCH2,  //靠近柱
+
+    WIND,
+    MODE0_STAGE_ARM3,    //将环放入柱中
+
+    MODE0_STAGE_MARCH3,  //后退
+    MODE0_STAGE_ROUTE2,  //寻线至环前
+    MODE0_STAGE_MARCH4,  //靠近环
+    MODE0_STAGE_ARM4,    //捡起环
+    MODE0_STAGE_ROUTE3,  //巡线至柱前
+    MODE0_STAGE_ARM5,    //准备架势
+    MODE0_STAGE_MARCH5,  //靠近柱
+    MODE0_STAGE_ARM6,    //将环放入柱中
+    MODE0_STAGE_MARCH6,  //前进
+    MODE0_STAGE_MARCH7,  //平移
+
+    MODE0_STAGE_DONE
+} Mode0Stage_t;
+
+typedef enum
+{
+    MODE1_STAGE_MARCH1 = 0,
+    MODE1_STAGE_ROUTE1,
+    MODE1_STAGE_ARM1,//偷环姿势
+    MODE1_STAGE_MARCH2,//前进
+    MODE1_STAGE_ARM2,//偷环
+    MODE1_STAGE_MARCH3,//后退
+    MODE1_STAGE_ROUTE2,//寻线至我方两分区
+    MODE1_STAGE_MARCH4,//前进一小点
+    MODE1_STAGE_ARM3,//放环
+    MODE1_STAGE_MARCH5,//后退
+    MODE1_STAGE_DONE
+} Mode1Stage_t;
+
 //实际路线
 
-static const RouteStep_t route1_steps[] = {
+static const RouteStep_t m0_route1_steps[] = {
     {1, TURN_LEFT},
     {1, TURN_RIGHT},
     {2, TURN_LEFT},
     {1, TURN_STRAIGHT}
 };
 
-static const RouteStep_t route2_steps[] = {
+static const RouteStep_t m0_route2_steps[] = {
     {1, TURN_RIGHT},
     {1, TURN_STRAIGHT}
 };
 
-static const RouteStep_t route3_steps[] = {
+static const RouteStep_t m0_route3_steps[] = {
     {1, TURN_LEFT}
 };
 
-
-static const Route_t route1 = {
-    route1_steps,
-    (u16)(sizeof(route1_steps) / sizeof(route1_steps[0]))
+static const RouteStep_t m1_route1_steps[] = {
+    {3, TURN_RIGHT}
 };
 
-static const Route_t route2 = {
-    route2_steps,
-    (u16)(sizeof(route2_steps) / sizeof(route2_steps[0]))
+static const RouteStep_t m1_route2_steps[] = {
+    {1, TURN_LEFT},
+    {2, TURN_RIGHT}
+};
+
+
+static const Route_t mode0_route1 = {
+    m0_route1_steps,
+    (u16)(sizeof(m0_route1_steps) / sizeof(m0_route1_steps[0]))
+};
+
+static const Route_t mode0_route2 = {
+    m0_route2_steps,
+    (u16)(sizeof(m0_route2_steps) / sizeof(m0_route2_steps[0]))
 };
     
-static const Route_t route3 = {
-    route3_steps,
-    (u16)(sizeof(route3_steps) / sizeof(route3_steps[0]))
+static const Route_t mode0_route3 = {
+    m0_route3_steps,
+    (u16)(sizeof(m0_route3_steps) / sizeof(m0_route3_steps[0]))
+};
+
+static const Route_t mode1_route1 = {
+    m1_route1_steps,
+    (u16)(sizeof(m1_route1_steps) / sizeof(m1_route1_steps[0]))
+};
+
+static const Route_t mode1_route2 = {
+    m1_route2_steps,
+    (u16)(sizeof(m1_route2_steps) / sizeof(m1_route2_steps[0]))
 };
 
 
-//测试用路线
-static const RouteStep_t test_route1_steps[] = {
-    {2, TURN_LEFT},
-    {2, TURN_STRAIGHT}
-};
 
-static const RouteStep_t test_route2_steps[] = {
-    {2, TURN_RIGHT},
-    {2, TURN_STRAIGHT}
-};
-
-static const RouteStep_t test_route3_steps[] = {
-    {2, TURN_BACK},
-    {2, TURN_STRAIGHT}
-};
-
-static const Route_t test_route1 = {
-    test_route1_steps,
-    (u16)(sizeof(test_route1_steps) / sizeof(test_route1_steps[0]))
-};
-
-static const Route_t test_route2 = {
-    test_route2_steps,
-    (u16)(sizeof(test_route2_steps) / sizeof(test_route2_steps[0]))
-};
-
-static const Route_t test_route3 = {
-    test_route3_steps,
-    (u16)(sizeof(test_route3_steps) / sizeof(test_route3_steps[0]))
-};
-
-static const Route_t *const g_test_routes[] = {
-    &test_route1,
-    &test_route2,
-    &test_route3
-};
 
 int main(void)
 {
-    BootState_t boot_state = BOOT_WAIT_FIRST_PRESS;
+    BootState_t boot_state = BOOT_SELECTING;
 
     HAL_Init();         //HAL 库初始化
     tb_rcc_init();      //系统时钟初始化
@@ -132,244 +141,235 @@ int main(void)
     tb_servo_demo_init(); // 机械臂状态初始化
     usart3_init();      // USART3 初始化
 
-    AppStage_t stage = DELAY;
+    uint32_t boot_start_tick = HAL_GetTick();
+    u8 boot_key_count = 0U;
+    char rx_buf[64];
+    ArmPose uart_pose;
+    AppMode_t app_mode = APP_MODE_0;
+    Mode0Stage_t mode0_stage = MODE0_STAGE_MARCH1;
+    Mode1Stage_t mode1_stage = MODE1_STAGE_MARCH1;
 
 
     while (1)
     {
-        if (key_pressed_event() != 0U)
+        if (boot_state == BOOT_SELECTING)
         {
-            if (boot_state == BOOT_WAIT_FIRST_PRESS)
+            tb_motor_stop_all();
+            if (key_pressed_event() != 0U)
             {
-                usart3_send_string("wind 50\n");
-                boot_state = BOOT_WAIT_SECOND_PRESS;
+                if (boot_key_count < 3U)
+                {
+                    boot_key_count++;
+                }
             }
-            else if (boot_state == BOOT_WAIT_SECOND_PRESS)
+
+            if ((HAL_GetTick() - boot_start_tick) >= 2000U)
             {
+                if (boot_key_count >= 3U)
+                {
+                    app_mode = APP_MODE_DEBUG;
+                }
+                else
+                {
+                    app_mode = (boot_key_count == 0U) ? APP_MODE_0 : APP_MODE_1;
+                }
                 boot_state = BOOT_RUNNING;
-                stage = DELAY;
+                mode0_stage = MODE0_STAGE_MARCH1;
+                mode1_stage = MODE1_STAGE_MARCH1;
                 forward_runner_abort();
                 route_runner_abort();
                 uart_send_reset();
             }
-        }
-
-        if (boot_state != BOOT_RUNNING)
-        {
-            tb_motor_stop_all();
-            continue;
-        }
-
-    /*   if (usart3_read_line(rx_buf, (u16)sizeof(rx_buf)) != 0U)
-        {
-            if (usart3_parse_pulses(rx_buf, &uart_pose) != 0U)
-            {
-                servo_apply_pose(&uart_pose);
-                usart3_send_string("ok\r\n");
-            }
             else
             {
-                usart3_send_string("format error\r\n");
-            }
-        }*/
-
-        /*current_key_state = key_read();
-
-
-        if ((last_key_state == 1U) && (current_key_state == 0U) && (active_route == 0))
-        {
-            active_route = g_test_routes[route_index];
-            route_index++;
-            if (route_index >= (u8)(sizeof(g_test_routes) / sizeof(g_test_routes[0])))
-            {
-                route_index = 0U;
+                continue;
             }
         }
 
-        last_key_state = current_key_state;
+    
 
-        if (active_route != 0)
+        if (app_mode == APP_MODE_DEBUG)
         {
-            if (run_route(active_route) != 0U)
+            tb_motor_stop_all();
+            forward_runner_abort();
+            route_runner_abort();
+
+            if (usart3_read_line(rx_buf, (u16)sizeof(rx_buf)) != 0U)
             {
-                active_route = 0;
-                route_runner_abort();
+                if (usart3_parse_pulses(rx_buf, &uart_pose) != 0U)
+                {
+                    servo_apply_pose(&uart_pose);
+                    usart3_send_string("ok\r\n");
+                }
+                else
+                {
+                    usart3_send_string("format error\r\n");
+                }
             }
-        }*/
-        if (stage != DELAY)
+        }
+        else if (app_mode == APP_MODE_1)
         {
             tb_servo_update(); // 主循环持续推进机械臂动作
+            switch (mode1_stage)
+            {
+            case MODE1_STAGE_MARCH1:
+                if (run_forward_ms(EXIT_INITAIL_ZONE_MS, EXIT_INITIAL_ZONE_SPEED) != 0U) // 定时前进
+                {
+                    mode1_stage = MODE1_STAGE_ROUTE1;
+                }
+                break;
+
+            case MODE1_STAGE_ROUTE1:
+                if (run_route(&mode1_route1) != 0U) // 走格子路线状态机
+                {
+                    mode1_stage = MODE1_STAGE_ARM1;
+                }
+                break;
+
+            case MODE1_STAGE_ARM1:
+                route_runner_abort();
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (tb_servo_start_action(&stole_direct) != 0U)
+                    {
+                        mode1_stage = MODE1_STAGE_MARCH2;
+                    }
+                }
+                break;
+
+            case MODE1_STAGE_MARCH2:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_forward_while_follow_line(APPROACH_POLE_MS+500, APPROACH_POLE_SPEED+200) !=0U) // 定时前进
+                    {
+                        mode1_stage = MODE1_STAGE_ARM2;
+                    }
+                }
+                break;
+            
+            case MODE1_STAGE_ARM2:
+                if (tb_servo_is_busy() == 0U){
+                    if (tb_servo_start_action(&stole) != 0U)
+                    {
+                        mode1_stage = MODE1_STAGE_MARCH3;
+                    }
+                }
+                break;
+            
+            case MODE1_STAGE_MARCH3:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_forward_ms(1000, -1300) != 0U) // 定时后退
+                    {
+                        mode1_stage = MODE1_STAGE_ROUTE2;
+                    }
+                }
+                break;
+
+            case MODE1_STAGE_ROUTE2:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_route(&mode1_route2) != 0U) // 走格子路线状态机
+                    {
+                        mode1_stage = MODE1_STAGE_MARCH4;
+                    }
+                }
+                break;
+            
+            case MODE1_STAGE_MARCH4:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_forward_while_follow_line(1800, 1200) != 0U) // 前进
+                    {
+                        mode1_stage = MODE1_STAGE_ARM3;
+                    }
+                }
+                break;
+
+            case MODE1_STAGE_ARM3:
+                if (tb_servo_is_busy() == 0U){
+                    if (tb_servo_start_action(&stole_place) != 0U)
+                    {
+                        mode1_stage = MODE1_STAGE_MARCH5;
+                    }
+                }
+                break;
+            
+            case MODE1_STAGE_MARCH5:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_forward_ms(1300, -1300) != 0U) // 定时后退
+                    {
+                        mode1_stage = MODE1_STAGE_DONE;
+                    }
+                }
+                break;
+
+            case MODE1_STAGE_DONE:
+            default:
+                forward_runner_abort();
+                route_runner_abort();
+                break;
+            }
+
+
         }
-
-        switch (stage)
+        else if (app_mode == APP_MODE_0)
         {
-        case DELAY:
-            if (wait_ms(7000) != 0U) 
+
+            tb_servo_update(); // 主循环持续推进机械臂动作
+
+            switch (mode0_stage)
             {
-                stage = APP_STAGE_MARCH1;
-            }
-            break;
+
         
         
-        case APP_STAGE_MARCH1:
-            if (run_forward_ms(EXIT_INITAIL_ZONE_MS, EXIT_INITIAL_ZONE_SPEED) != 0U) // 定时前进
-            {
-                stage = APP_STAGE_ARM1;
-            }
+            case MODE0_STAGE_MARCH1:
+                if (run_forward_ms(EXIT_INITAIL_ZONE_MS, EXIT_INITIAL_ZONE_SPEED) != 0U) // 定时前进
+                {
+                    mode0_stage = MODE0_STAGE_ARM1;
+                }
+                break;
+
+            case MODE0_STAGE_ARM1:
+                route_runner_abort();
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (tb_servo_start_action(&pick) != 0U)
+                    {
+                        mode0_stage = MODE0_STAGE_ROUTE1;
+                    }
+                }
             break;
 
-        case APP_STAGE_ARM1:
-            route_runner_abort();
+            case MODE0_STAGE_ROUTE1:
             if (tb_servo_is_busy() == 0U)
             {
-                if (tb_servo_start_action(&pick) != 0U)
+                if (run_route(&mode0_route1) != 0U) // 走格子路线状态机
                 {
-                    stage = APP_STAGE_ROUTE1;
+                    mode0_stage = MODE0_STAGE_ARM2;
                 }
             }
             break;
 
-        case APP_STAGE_ROUTE1:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_route(&route1) != 0U) // 走格子路线状态机
+            case MODE0_STAGE_ARM2:
+                route_runner_abort();
+                if (tb_servo_is_busy() == 0U)
                 {
-                    stage = APP_STAGE_ARM2;
+                    if (tb_servo_start_action(&direct) != 0U)
+                    {
+                        mode0_stage = MODE0_STAGE_MARCH2;
+                    }
                 }
-            }
-            break;
-
-        case APP_STAGE_ARM2:
-            route_runner_abort();
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (tb_servo_start_action(&direct) != 0U)
-                {
-                    stage = APP_STAGE_MARCH2;
-                }
-            }
-            break;
+                break;
 
 
-        case APP_STAGE_MARCH2:
+        case MODE0_STAGE_MARCH2:
             if (tb_servo_is_busy() == 0U)
             {
                 if (run_forward_while_follow_line(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时直行/倒退
                 {
-                    stage = APP_STAGE_ARM3;
-                }
-            }
-            break;
-
-        
-
-        case APP_STAGE_ARM3:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (tb_servo_start_action(&place) != 0U)
-                {
-                    stage = APP_STAGE_MARCH3;
-                }
-            }
-            break;
-
-        case APP_STAGE_MARCH3:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_forward_while_follow_line(BACKWARD_MS, BACKWARD_SPEED) != 0U) // 定时寻线前进
-                {
-                    stage = APP_STAGE_ROUTE2;
-                }
-            }
-            break;
-            
-        case APP_STAGE_ROUTE2:
-            if (tb_servo_is_busy() == 0U)            
-            {
-                if (run_route(&route2) != 0U) 
-                {                    
-                    stage = APP_STAGE_MARCH4;
-                }
-            }
-            break;
-
-        case APP_STAGE_MARCH4:
-            if (tb_servo_is_busy() == 0U)           
-            {
-                if (run_forward_while_follow_line(APPROACH_RING_MS, APPROACH_RING_SPEED) != 0U) // 定时左平移
-                {                    
-                    stage = APP_STAGE_ARM4;
-                }
-            }
-            break;
-
-        case APP_STAGE_ARM4:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (tb_servo_start_action(&pick) != 0U)
-                {
-                    stage = APP_STAGE_ROUTE3;
-                }
-            }
-            break;
-
-        case APP_STAGE_ROUTE3:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_route(&route3) != 0U) // 走格子路线状态机
-                {
-                    stage = APP_STAGE_ARM5;
-                }
-            }
-            break;
-
-        case APP_STAGE_ARM5:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (tb_servo_start_action(&direct) != 0U)
-                {
-                    stage = APP_STAGE_MARCH5;
-                }
-            }
-            break;
-
-        case APP_STAGE_MARCH5:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_forward_while_follow_line(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时前进
-                {
-                    stage = APP_STAGE_ARM6;
-                }
-            }
-            break;
-
-        case APP_STAGE_ARM6:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (tb_servo_start_action(&place2) != 0U)
-                {
-                    stage = APP_STAGE_MARCH6;
-                }
-            }
-            break;
-
-
-        case APP_STAGE_MARCH6:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_strafe_left_ms(1800, 1300) != 0U) 
-                {
-                    stage = APP_STAGE_MARCH7;
-                }
-            }
-            break;
-        
-        case APP_STAGE_MARCH7:
-            if (tb_servo_is_busy() == 0U)
-            {
-                if (run_forward_ms(1800, 1300) != 0U) 
-                {
-                    stage = WIND;
+                    mode0_stage = WIND;
                 }
             }
             break;
@@ -377,19 +377,136 @@ int main(void)
         case WIND:
             if (tb_servo_is_busy() == 0U)
             {
-                if (uart_send("wind 50\n") != 0U) // 一次性串口发送
+                if (uart_send("wind 25\n") != 0U) // 一次性串口发送
                 {
-                    stage = APP_STAGE_DONE;
+                    mode0_stage = MODE0_STAGE_ARM3;
                 }
             }
             break;
         
-        case APP_STAGE_DONE:
+
+        case MODE0_STAGE_ARM3:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&place) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH3;
+                }
+            }
+            break;
+
+        
+
+        case MODE0_STAGE_MARCH3:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_while_follow_line(BACKWARD_MS, BACKWARD_SPEED) != 0U) // 定时寻线前进
+                {
+                    mode0_stage = MODE0_STAGE_ROUTE2;
+                }
+            }
+            break;
+            
+        case MODE0_STAGE_ROUTE2:
+            if (tb_servo_is_busy() == 0U)            
+            {
+                if (run_route(&mode0_route2) != 0U) 
+                {                    
+                    mode0_stage = MODE0_STAGE_MARCH4;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_MARCH4:
+            if (tb_servo_is_busy() == 0U)           
+            {
+                if (run_forward_while_follow_line(APPROACH_RING_MS, APPROACH_RING_SPEED) != 0U) // 定时左平移
+                {                    
+                    mode0_stage = MODE0_STAGE_ARM4;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM4:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&pick) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_ROUTE3;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ROUTE3:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_route(&mode0_route3) != 0U) // 走格子路线状态机
+                {
+                    mode0_stage = MODE0_STAGE_ARM5;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM5:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&direct) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH5;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_MARCH5:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_while_follow_line(APPROACH_POLE_MS, APPROACH_POLE_SPEED) != 0U) // 定时前进
+                {
+                    mode0_stage = MODE0_STAGE_ARM6;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM6:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&place2) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH6;
+                }
+            }
+            break;
+
+
+        case MODE0_STAGE_MARCH6:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_strafe_left_ms(1800, 1500) != 0U) 
+                {
+                    mode0_stage = MODE0_STAGE_MARCH7;
+                }
+            }
+            break;
+        
+        case MODE0_STAGE_MARCH7:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_ms(1800, 1300) != 0U) 
+                {
+                    mode0_stage = MODE0_STAGE_DONE;
+                }
+            }
+            break;
+
+        
+        
+        case MODE0_STAGE_DONE:
         default:
             route_runner_abort();
             break;
         }
     }
+}
 }
 
 // 错误处理函数
