@@ -5,7 +5,7 @@
 #include "car_config.h"
 #include "tb_type.h"
 
-#define EXIT_INITAIL_ZONE_MS    2100 //2300
+#define EXIT_INITAIL_ZONE_MS    2060 //2300
 #define EXIT_INITIAL_ZONE_SPEED 1300
 #define APPROACH_RING_MS        1220 //1220
 #define APPROACH_RING_SPEED     1300

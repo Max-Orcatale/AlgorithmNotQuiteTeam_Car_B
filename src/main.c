@@ -24,6 +24,7 @@ typedef enum
 {
     APP_MODE_0 = 0,
     APP_MODE_1,
+    APP_MODE_2,
     APP_MODE_DEBUG
 } AppMode_t;
 
@@ -46,8 +47,22 @@ typedef enum
     MODE0_STAGE_ARM5,    //准备架势
     MODE0_STAGE_MARCH5,  //靠近柱
     MODE0_STAGE_ARM6,    //将环放入柱中
-    MODE0_STAGE_MARCH6,  //前进
-    MODE0_STAGE_MARCH7,  //平移
+    MODE0_STAGE_MARCH6,  //后退
+
+    MODE0_STAGE_ROUTE4,  //寻线至第3个环前
+    MODE0_STAGE_MARCH7,  //靠近环
+    MODE0_STAGE_ARM7,    //捡起环
+    MODE0_STAGE_ROUTE5,  //巡线至柱前
+    MODE0_STAGE_ARM8,    //准备架势
+    MODE0_STAGE_MARCH8,  //靠近柱
+    MODE0_STAGE_ARM9,    //将环放入柱中
+
+    MODE0_STAGE_MARCH9,    //后退
+    MODE0_STAGE_ROUTE6,    //寻线至敌方3分区
+    MODE0_STAGE_ARM10, //偷环姿势
+    MODE0_STAGE_MARCH10, //前进偷环
+    MODE0_STAGE_ARM11, //偷环
+    MODE0_STAGE_MARCH11, //后退
 
     MODE0_STAGE_DONE
 } Mode0Stage_t;
@@ -67,7 +82,21 @@ typedef enum
     MODE1_STAGE_DONE
 } Mode1Stage_t;
 
-//实际路线
+typedef enum
+{
+    MODE2_STAGE_MARCH1 = 0, //出初始区域
+    MODE2_STAGE_ARM1,    //捡起满仓环
+    MODE2_STAGE_ROUTE1,  //巡线至柱前
+    MODE2_STAGE_ARM2,    //准备架势
+    MODE2_STAGE_MARCH2,  //靠近柱
+    MODE2_STAGE_ARM3,    //将环放入柱中
+    MODE2_STAGE_MARCH3,  //平移
+    MODE2_STAGE_DONE
+    
+} Mode2Stage_t;
+
+
+//路线
 
 static const RouteStep_t m0_route1_steps[] = {
     {1, TURN_LEFT},
@@ -85,6 +114,20 @@ static const RouteStep_t m0_route3_steps[] = {
     {1, TURN_LEFT}
 };
 
+static const RouteStep_t m0_route4_steps[] = {
+    {1, TURN_BACK},
+    {3, TURN_STRAIGHT}
+};
+
+static const RouteStep_t m0_route5_steps[] = {
+    {1, TURN_STRAIGHT}
+};
+
+static const RouteStep_t m0_route6_steps[] = {
+    {1, TURN_RIGHT},
+    {2, TURN_LEFT}
+};
+
 static const RouteStep_t m1_route1_steps[] = {
     {3, TURN_RIGHT}
 };
@@ -92,6 +135,13 @@ static const RouteStep_t m1_route1_steps[] = {
 static const RouteStep_t m1_route2_steps[] = {
     {1, TURN_LEFT},
     {2, TURN_RIGHT}
+};
+
+static const RouteStep_t m2_route1_steps[] = {
+    {1, TURN_RIGHT},
+    {1, TURN_LEFT},
+    {4, TURN_RIGHT},
+    {1, TURN_STRAIGHT}
 };
 
 
@@ -110,6 +160,21 @@ static const Route_t mode0_route3 = {
     (u16)(sizeof(m0_route3_steps) / sizeof(m0_route3_steps[0]))
 };
 
+static const Route_t mode0_route4 = {
+    m0_route4_steps,
+    (u16)(sizeof(m0_route4_steps) / sizeof(m0_route4_steps[0]))
+};
+
+static const Route_t mode0_route5 = {
+    m0_route5_steps,
+    (u16)(sizeof(m0_route5_steps) / sizeof(m0_route5_steps[0]))
+};
+
+static const Route_t mode0_route6 = {
+    m0_route6_steps,
+    (u16)(sizeof(m0_route6_steps) / sizeof(m0_route6_steps[0]))
+};
+
 static const Route_t mode1_route1 = {
     m1_route1_steps,
     (u16)(sizeof(m1_route1_steps) / sizeof(m1_route1_steps[0]))
@@ -118,6 +183,11 @@ static const Route_t mode1_route1 = {
 static const Route_t mode1_route2 = {
     m1_route2_steps,
     (u16)(sizeof(m1_route2_steps) / sizeof(m1_route2_steps[0]))
+};
+
+static const Route_t mode2_route1 = {
+    m2_route1_steps,
+    (u16)(sizeof(m2_route1_steps) / sizeof(m2_route1_steps[0]))
 };
 
 
@@ -148,6 +218,7 @@ int main(void)
     AppMode_t app_mode = APP_MODE_0;
     Mode0Stage_t mode0_stage = MODE0_STAGE_MARCH1;
     Mode1Stage_t mode1_stage = MODE1_STAGE_MARCH1;
+    Mode2Stage_t mode2_stage = MODE2_STAGE_MARCH1;
 
 
     while (1)
@@ -163,7 +234,7 @@ int main(void)
                 }
             }
 
-            if ((HAL_GetTick() - boot_start_tick) >= 2000U)
+            if ((HAL_GetTick() - boot_start_tick) >= 4000U)
             {
                 if (boot_key_count >= 3U)
                 {
@@ -171,11 +242,23 @@ int main(void)
                 }
                 else
                 {
-                    app_mode = (boot_key_count == 0U) ? APP_MODE_0 : APP_MODE_1;
+                    if (boot_key_count == 0U)
+                    {
+                        app_mode = APP_MODE_0;
+                    }
+                    else if (boot_key_count == 1U)
+                    {
+                        app_mode = APP_MODE_1;
+                    }
+                    else
+                    {
+                        app_mode = APP_MODE_2;
+                    }
                 }
                 boot_state = BOOT_RUNNING;
                 mode0_stage = MODE0_STAGE_MARCH1;
                 mode1_stage = MODE1_STAGE_MARCH1;
+                mode2_stage = MODE2_STAGE_MARCH1;
                 forward_runner_abort();
                 route_runner_abort();
                 uart_send_reset();
@@ -313,6 +396,87 @@ int main(void)
             }
 
 
+        }
+        else if (app_mode == APP_MODE_2)
+        {
+            tb_servo_update(); // 主循环持续推进机械臂动作
+            switch (mode2_stage)
+            {
+            case MODE2_STAGE_MARCH1:
+                if (run_forward_ms(EXIT_INITAIL_ZONE_MS, EXIT_INITIAL_ZONE_SPEED) != 0U)
+                {
+                    mode2_stage = MODE2_STAGE_ARM1;
+                }
+                break;
+
+            case MODE2_STAGE_ARM1:
+                route_runner_abort();
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (tb_servo_start_action(&pick) != 0U)
+                    {
+                        mode2_stage = MODE2_STAGE_ROUTE1;
+                    }
+                }
+                break;
+
+            case MODE2_STAGE_ROUTE1:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_route(&mode2_route1) != 0U)
+                    {
+                        mode2_stage = MODE2_STAGE_ARM2;
+                    }
+                }
+                break;
+
+            case MODE2_STAGE_ARM2:
+                route_runner_abort();
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (tb_servo_start_action(&direct) != 0U)
+                    {
+                        mode2_stage = MODE2_STAGE_MARCH2;
+                    }
+                }
+                break;
+
+            case MODE2_STAGE_MARCH2:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_forward_while_follow_line(APPROACH_POLE_MS+700, APPROACH_POLE_SPEED) != 0U)
+                    {
+                        mode2_stage = MODE2_STAGE_ARM3;
+                    }
+                }
+                break;
+
+            case MODE2_STAGE_ARM3:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (tb_servo_start_action(&place2) != 0U)
+                    {
+                        mode2_stage = MODE2_STAGE_MARCH3;
+                    }
+                }
+                break;
+
+            case MODE2_STAGE_MARCH3:
+                if (tb_servo_is_busy() == 0U)
+                {
+                    if (run_strafe_right_ms(5000, APPROACH_RING_SPEED+200) != 0U)
+                    {
+                        mode2_stage = MODE2_STAGE_DONE;
+                    }
+                }
+                break;
+
+            case MODE2_STAGE_DONE:
+            default:
+                forward_runner_abort();
+                route_runner_abort();
+                break;
+            }
         }
         else if (app_mode == APP_MODE_0)
         {
@@ -481,7 +645,17 @@ int main(void)
         case MODE0_STAGE_MARCH6:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_strafe_left_ms(1800, 1500) != 0U) 
+                if (run_forward_ms(1200, -1500) != 0U) 
+                {
+                    mode0_stage = MODE0_STAGE_ROUTE4;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ROUTE4:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_route(&mode0_route4) != 0U) // 走格子路线状态机
                 {
                     mode0_stage = MODE0_STAGE_MARCH7;
                 }
@@ -491,15 +665,123 @@ int main(void)
         case MODE0_STAGE_MARCH7:
             if (tb_servo_is_busy() == 0U)
             {
-                if (run_forward_ms(1800, 1300) != 0U) 
+                if (run_forward_while_follow_line(APPROACH_RING_MS-300, APPROACH_RING_SPEED) != 0U) 
+                {
+                    mode0_stage = MODE0_STAGE_ARM7;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM7:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&pick) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_ROUTE5;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ROUTE5:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_route(&mode0_route5) != 0U) // 走格子路线状态机
+                {
+                    mode0_stage = MODE0_STAGE_ARM8;
+                }
+            }
+            break;
+        
+        case MODE0_STAGE_ARM8:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&direct) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH8;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_MARCH8:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_while_follow_line(APPROACH_POLE_MS+500, APPROACH_POLE_SPEED) != 0U) // 定时前进
+                {
+                    mode0_stage = MODE0_STAGE_ARM9;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM9:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&place2) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH9;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_MARCH9:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_ms(1000, -1500) != 0U) // 定时后退
+                {
+                    mode0_stage = MODE0_STAGE_ROUTE6;
+                }
+            }
+            break;
+        
+        case MODE0_STAGE_ROUTE6:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_route(&mode0_route6) != 0U) // 走格子路线状态机
+                {
+                    mode0_stage = MODE0_STAGE_ARM10;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM10:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&stole_direct) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH10;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_MARCH10:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_while_follow_line(APPROACH_POLE_MS+500, APPROACH_POLE_SPEED+200) != 0U) // 定时前进
+                {
+                    mode0_stage = MODE0_STAGE_ARM11;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_ARM11:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (tb_servo_start_action(&stole_place) != 0U)
+                {
+                    mode0_stage = MODE0_STAGE_MARCH11;
+                }
+            }
+            break;
+
+        case MODE0_STAGE_MARCH11:
+            if (tb_servo_is_busy() == 0U)
+            {
+                if (run_forward_ms(1000, -1500) != 0U) // 定时后退
                 {
                     mode0_stage = MODE0_STAGE_DONE;
                 }
             }
             break;
 
-        
-        
         case MODE0_STAGE_DONE:
         default:
             route_runner_abort();

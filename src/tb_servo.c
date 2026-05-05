@@ -23,7 +23,7 @@ static const ArmPose s_pick_poses[] = {
 };
 
 static const ArmPose s_direct_poses[] = {
-    {{1730, 2100, 1650, SERVO3_TIGHT}, 2000}
+    {{1720, 2100, 1650, SERVO3_TIGHT}, 2000}
 };
 
 static const ArmPose s_place_poses[] = {
@@ -33,7 +33,7 @@ static const ArmPose s_place_poses[] = {
     {{1750, 1800, 1650, SERVO3_TIGHT}, 2000},
     {{1775, 1780, 1650, SERVO3_TIGHT}, 500},
     {{1850, 1700, 1650, SERVO3_TIGHT}, 2000},
-    {{1810, 1800, 1650, SERVO3_LOOSE}, 500},
+    {{1810, 2000, 1650, SERVO3_LOOSE}, 500},
     {{1600, 2100, 1650, SERVO3_LOOSE}, 1500}
 };
 
@@ -44,16 +44,16 @@ static const ArmPose s_place2_poses[] = {
 };
 
 static const ArmPose s_stole_direct_poses[] = {
-    {{2130, 1457, 1000, SERVO3_OPEN}, 1000}
+    {{2130, 1445, 1000, SERVO3_OPEN}, 1000}
 };
 
 static const ArmPose s_stole_poses[] = {
-    {{2130, 1457, 1000, SERVO3_OPEN_TIGHT}, 1000},
+    {{2130, 1445, 1000, SERVO3_OPEN_TIGHT}, 1000},
     {{1800, 1650, 1000, SERVO3_OPEN_TIGHT}, 2000}
 };
 
 static const ArmPose s_stole_place_poses[] = {
-    {{1600, 2500, 1000, SERVO3_OPEN_TIGHT}, 2000}
+    {{1650, 2500, 1000, SERVO3_OPEN_TIGHT}, 2000}
 };
 
 const ArmAction pick = {s_pick_poses, (u8)(sizeof(s_pick_poses) / sizeof(s_pick_poses[0]))};

@@ -11,7 +11,7 @@ typedef struct
 } FollowTune_t;
 
 static const FollowTune_t s_follow_forward_tunes[] = {
-    {30, 50}
+    {25, 50}
 };
 
 /* 当前巡线模块恢复为：1 表示检测到黑线，0 表示白底。 */
@@ -97,6 +97,11 @@ static void follow_forward_apply_tune(LineFollowCtrl_t *ctrl)
 static int16_t route_get_turn_speed(void)
 {
     return (ROUTE_TURN_SPEED >= FOLLOW_BASE_SPEED) ? ROUTE_TURN_SPEED : FOLLOW_BASE_SPEED;
+}
+
+static uint32_t route_get_turn_min_ms(TurnAction_t turn)
+{
+    return (turn == TURN_BACK) ? ROUTE_BACK_TURN_MIN_MS : ROUTE_TURN_MIN_MS;
 }
 
 static int16_t line_follow_compute_error(const LineSensorData_t *data, uint8_t *valid)
@@ -376,12 +381,14 @@ uint8_t run_route(const Route_t *route)
 
     if (s_runner.state == ROUTE_RUNNER_TURNING)
     {
+        uint32_t turn_min_ms = route_get_turn_min_ms(s_runner.pending_turn);
+
         if (route_turn_stop_line_seen(&sensor_data) == 0U)
         {
             s_runner.turn_line_lost = 1U;
         }
         else if ((s_runner.turn_line_lost != 0U) &&
-                 ((now - s_runner.turn_start_tick) >= ROUTE_TURN_MIN_MS))
+                 ((now - s_runner.turn_start_tick) >= turn_min_ms))
         {
             return route_finish_turn();
         }
